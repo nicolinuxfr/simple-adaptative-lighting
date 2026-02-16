@@ -208,10 +208,13 @@ action:
       sequence:
         - variables:
             modes: "{{ state_attr(repeat.item, 'supported_color_modes') or [] }}"
-            supports_ct: "{{ 'color_temp' in modes }}"
-            supports_brightness: "{{ (modes | reject('equalto', 'onoff') | list | count) > 0 }}"
             min_k: "{{ state_attr(repeat.item, 'min_color_temp_kelvin') | float(0) }}"
             max_k: "{{ state_attr(repeat.item, 'max_color_temp_kelvin') | float(0) }}"
+            supports_ct: "{{ 'color_temp' in modes or (min_k > 0 and max_k > 0) }}"
+            # In Z2M/groups, supported_color_modes can be empty or partial.
+            # Default to brightness-capable unless explicitly onoff-only.
+            supports_brightness: >
+              {{ (modes | count == 0) or not ((modes | count == 1) and (modes[0] == 'onoff')) }}
             clamped_kelvin: >
               {% if min_k > 0 and max_k > 0 %}
                 {{ [min_k, [target_kelvin | float(0), max_k] | min] | max | round(0) | int }}
