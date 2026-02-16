@@ -18,7 +18,8 @@ blueprint:
 
     auto_mode_boolean:
       name: Adaptive auto mode
-      description: input_boolean controlling adaptive mode (on = adaptive active, off = manual mode).
+      description: Optional input_boolean controlling adaptive mode (on = adaptive active, off = manual mode).
+      default: ""
       selector:
         entity:
           domain: input_boolean
@@ -118,11 +119,6 @@ trigger:
     to: "on"
     id: light_on
 
-  - platform: state
-    entity_id: !input auto_mode_boolean
-    to: "on"
-    id: auto_on
-
   - platform: sun
     event: sunrise
     id: sun_event
@@ -132,9 +128,9 @@ trigger:
     id: sun_event
 
 condition:
-  - condition: state
-    entity_id: !input auto_mode_boolean
-    state: "on"
+  - condition: template
+    value_template: >
+      {{ auto_mode_entity in ['', none] or is_state(auto_mode_entity, 'on') }}
 
   - condition: template
     value_template: >
