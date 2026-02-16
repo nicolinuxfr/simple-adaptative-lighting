@@ -150,6 +150,14 @@ condition:
       {{ trigger.id != 'tick' or (now().minute % (interval_min | int(2)) == 0) }}
 
 action:
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: "{{ trigger.id == 'light_on' }}"
+        sequence:
+          - delay:
+              milliseconds: 800
+
   - variables:
       on_lights: >
         {{ expand(light_entities)
@@ -210,11 +218,18 @@ action:
             modes: "{{ state_attr(repeat.item, 'supported_color_modes') or [] }}"
             min_k: "{{ state_attr(repeat.item, 'min_color_temp_kelvin') | float(0) }}"
             max_k: "{{ state_attr(repeat.item, 'max_color_temp_kelvin') | float(0) }}"
-            supports_ct: "{{ 'color_temp' in modes or (min_k > 0 and max_k > 0) }}"
+            sf: "{{ state_attr(repeat.item, 'supported_features') | int(0) }}"
+            supports_ct: >
+              {{ 'color_temp' in modes
+                 or (min_k > 0 and max_k > 0)
+                 or (state_attr(repeat.item, 'color_temp_kelvin') is not none)
+                 or (state_attr(repeat.item, 'color_temp') is not none) }}
             # In Z2M/groups, supported_color_modes can be empty or partial.
             # Default to brightness-capable unless explicitly onoff-only.
             supports_brightness: >
-              {{ (modes | count == 0) or not ((modes | count == 1) and (modes[0] == 'onoff')) }}
+              {{ ((sf & 1) > 0)
+                 or (modes | count == 0)
+                 or not ((modes | count == 1) and (modes[0] == 'onoff')) }}
             clamped_kelvin: >
               {% if min_k > 0 and max_k > 0 %}
                 {{ [min_k, [target_kelvin | float(0), max_k] | min] | max | round(0) | int }}
