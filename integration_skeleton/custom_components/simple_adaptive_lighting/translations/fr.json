@@ -1,0 +1,35 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Simple Adaptive Lighting",
+        "description": "Cree un profil adaptatif et un interrupteur d'activation.",
+        "data": {
+          "name": "Nom",
+          "target_lights": "Lumieres cibles",
+          "min_brightness_pct": "Luminosite minimale (%)",
+          "max_brightness_pct": "Luminosite maximale (%)",
+          "min_kelvin": "Temperature de couleur minimale (K)",
+          "max_kelvin": "Temperature de couleur maximale (K)",
+          "enabled": "Active au demarrage"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options Simple Adaptive Lighting",
+        "data": {
+          "name": "Nom",
+          "target_lights": "Lumieres cibles",
+          "min_brightness_pct": "Luminosite minimale (%)",
+          "max_brightness_pct": "Luminosite maximale (%)",
+          "min_kelvin": "Temperature de couleur minimale (K)",
+          "max_kelvin": "Temperature de couleur maximale (K)",
+          "enabled": "Active"
+        }
+      }
+    }
+  }
+}
