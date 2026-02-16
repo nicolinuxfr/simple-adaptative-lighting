@@ -148,11 +148,19 @@ action:
     value_template: "{{ on_lights | count > 0 }}"
 
   - variables:
-      elevation: "{{ state_attr('sun.sun', 'elevation') | float(-6) }}"
-      # Map sun elevation from [-6 .. 60] to [0 .. 1].
+      n: "{{ now() }}"
+      nr: "{{ as_datetime(state_attr('sun.sun', 'next_rising')) }}"
+      ns: "{{ as_datetime(state_attr('sun.sun', 'next_setting')) }}"
+      # Day curve from sunrise->sunset, with a guaranteed peak at midday.
       ratio: >
-        {% set raw = (elevation + 6) / 66 %}
-        {{ [0, [raw, 1] | min] | max }}
+        {% if nr and ns and (nr > ns) %}
+          {% set sunrise = nr - timedelta(days=1) %}
+          {% set sunset = ns %}
+          {% set p = ((as_timestamp(n) - as_timestamp(sunrise)) / (as_timestamp(sunset) - as_timestamp(sunrise))) %}
+          {{ sin(pi * ([0, [p, 1] | min] | max)) }}
+        {% else %}
+          0
+        {% endif %}
       target_brightness: >
         {{ (b_night | float(10) + (b_day | float(85) - b_night | float(10)) * (ratio | float(0)))
            | round(0) | int }}
