@@ -175,17 +175,15 @@ action:
     value_template: "{{ target_lights_to_update | count > 0 }}"
 
   - variables:
-      n: "{{ now() }}"
-      nr: "{{ as_datetime(state_attr('sun.sun', 'next_rising')) }}"
-      ns: "{{ as_datetime(state_attr('sun.sun', 'next_setting')) }}"
+      n_ts: "{{ as_timestamp(now()) }}"
+      nr_ts: "{{ as_timestamp(state_attr('sun.sun', 'next_rising')) }}"
+      ns_ts: "{{ as_timestamp(state_attr('sun.sun', 'next_setting')) }}"
       # Piecewise curve sunrise->solar_peak->sunset with a flat max plateau around solar peak.
       ratio: >
-        {% if nr and ns and (nr > ns) %}
-          {% set sunrise = nr - timedelta(days=1) %}
-          {% set sunset = ns %}
-          {% set t = as_timestamp(n) %}
-          {% set s = as_timestamp(sunrise) %}
-          {% set e = as_timestamp(sunset) %}
+        {% if nr_ts and ns_ts %}
+          {% set t = n_ts | float(0) %}
+          {% set s = (nr_ts | float(0)) - 86400 %}
+          {% set e = ns_ts | float(0) %}
           {% set p = (s + e) / 2 %}
           {% set w = (plateau_min | int(60)) * 60 %}
           {% set ps = p - w %}
