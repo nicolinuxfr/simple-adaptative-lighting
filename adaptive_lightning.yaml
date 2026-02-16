@@ -103,7 +103,7 @@ blueprint:
           mode: slider
           unit_of_measurement: min
 
-mode: single
+mode: restart
 
 variables:
   room_lights: !input target_lights
@@ -156,9 +156,15 @@ action:
            | selectattr('state', 'eq', 'on')
            | map(attribute='entity_id')
            | list }}
+      target_lights_to_update: >
+        {% if trigger.id == 'light_on' and trigger.entity_id in light_entities %}
+          {{ ([trigger.entity_id] + on_lights) | unique | list }}
+        {% else %}
+          {{ on_lights }}
+        {% endif %}
 
   - condition: template
-    value_template: "{{ on_lights | count > 0 }}"
+    value_template: "{{ target_lights_to_update | count > 0 }}"
 
   - variables:
       n: "{{ now() }}"
@@ -199,7 +205,7 @@ action:
 
   - service: light.turn_on
     target:
-      entity_id: "{{ on_lights }}"
+      entity_id: "{{ target_lights_to_update }}"
     data:
       brightness_pct: "{{ target_brightness }}"
       kelvin: "{{ target_kelvin }}"
