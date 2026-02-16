@@ -93,7 +93,7 @@ blueprint:
 
     peak_plateau_min:
       name: Peak plateau half-width (minutes)
-      description: Keep max values from (solar peak - N min) to (solar peak + N min).
+      description: Legacy setting (unused with Adaptive Lighting default algorithm).
       default: 60
       selector:
         number:
@@ -115,7 +115,6 @@ variables:
   b_day: !input brightness_day
   k_night: !input kelvin_night
   k_day: !input kelvin_day
-  plateau_min: !input peak_plateau_min
   light_entities: >
     {% if room_lights is string %}
       {{ [room_lights] }}
@@ -179,24 +178,42 @@ action:
       n_ts: "{{ as_timestamp(now()) }}"
       nr_ts: "{{ as_timestamp(state_attr('sun.sun', 'next_rising')) }}"
       ns_ts: "{{ as_timestamp(state_attr('sun.sun', 'next_setting')) }}"
-      # Piecewise curve sunrise->solar_peak->sunset with a flat max plateau around solar peak.
-      ratio: >
-        {% if nr_ts and ns_ts %}
+      nn_ts: "{{ as_timestamp(state_attr('sun.sun', 'next_noon')) }}"
+      nm_ts: "{{ as_timestamp(state_attr('sun.sun', 'next_midnight')) }}"
+      # Adaptive Lighting default sun position in [-1, 1]:
+      # -1 at midnight, 0 at sunrise/sunset, +1 at solar noon.
+      sun_position: >
+        {% if nr_ts and ns_ts and nn_ts and nm_ts %}
           {% set t = n_ts | float(0) %}
-          {% set s = (nr_ts | float(0)) - 86400 %}
-          {% set e = ns_ts | float(0) %}
-          {% set p = (s + e) / 2 %}
-          {% set w = (plateau_min | float(60)) * 60 %}
-          {% set ps = p - w %}
-          {% set pe = p + w %}
-          {% if t <= s or t >= e %}
-            0
-          {% elif t < ps and ps > s %}
-            {{ (t - s) / (ps - s) }}
-          {% elif t <= pe %}
-            1
-          {% elif e > pe %}
-            {{ (e - t) / (e - pe) }}
+          {% set nr = nr_ts | float(0) %}
+          {% set ns = ns_ts | float(0) %}
+          {% set nn = nn_ts | float(0) %}
+          {% set nm = nm_ts | float(0) %}
+          {% set prev_nr = nr - 86400 %}
+          {% set prev_ns = ns - 86400 %}
+          {% set prev_nn = nn - 86400 %}
+          {% set prev_nm = nm - 86400 %}
+          {% set above = is_state('sun.sun', 'above_horizon') %}
+          {% set rising = state_attr('sun.sun', 'rising') %}
+          {% if above and rising %}
+            {% set h = nn %}
+            {% set x = prev_nr %}
+            {% set k = 1 %}
+          {% elif above and not rising %}
+            {% set h = prev_nn %}
+            {% set x = ns %}
+            {% set k = 1 %}
+          {% elif (not above) and rising %}
+            {% set h = prev_nm %}
+            {% set x = nr %}
+            {% set k = -1 %}
+          {% else %}
+            {% set h = nm %}
+            {% set x = prev_ns %}
+            {% set k = -1 %}
+          {% endif %}
+          {% if (h - x) != 0 %}
+            {{ (k * (1 - (((t - h) / (h - x)) ** 2))) | float(0) }}
           {% else %}
             0
           {% endif %}
@@ -204,18 +221,31 @@ action:
           0
         {% endif %}
       target_brightness: >
-        {{ (b_night | float(10) + (b_day | float(85) - b_night | float(10)) * (ratio | float(0)))
-           | round(0) | int }}
+        {% set p = sun_position | float(0) %}
+        {% set b_min = [b_night | float(1), b_day | float(100)] | min %}
+        {% set b_max = [b_night | float(1), b_day | float(100)] | max %}
+        {% if p > 0 %}
+          {{ b_max | round(0) | int }}
+        {% else %}
+          {{ ((b_max - b_min) * (1 + p) + b_min) | round(0) | int }}
+        {% endif %}
       target_kelvin: >
-        {{ (k_night | float(2200) + (k_day | float(5000) - k_night | float(2200)) * (ratio | float(0)))
-           | round(0) | int }}
+        {% set p = sun_position | float(0) %}
+        {% set k_min = [k_night | float(2200), k_day | float(5000)] | min %}
+        {% set k_max = [k_night | float(2200), k_day | float(5000)] | max %}
+        {% if p > 0 %}
+          {{ ((k_max - k_min) * p + k_min) | round(0) | int }}
+        {% else %}
+          {{ k_min | round(0) | int }}
+        {% endif %}
 
   - event: adaptive_lighting_value
     event_data:
       instance_id: "{{ this.entity_id }}"
       kelvin: "{{ target_kelvin }}"
       brightness_pct: "{{ target_brightness }}"
-      ratio: "{{ ratio | float(0) }}"
+      ratio: "{{ sun_position | float(0) }}"
+      sun_position: "{{ sun_position | float(0) }}"
       trigger_id: "{{ trigger.id }}"
       lights: "{{ target_lights_to_update }}"
 

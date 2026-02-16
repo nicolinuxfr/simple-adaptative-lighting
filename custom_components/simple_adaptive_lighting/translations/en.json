@@ -1,0 +1,35 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Simple Adaptive Lighting",
+        "description": "Configure one adaptive profile.",
+        "data": {
+          "name": "Name",
+          "target_lights": "Target lights",
+          "min_brightness_pct": "Minimum brightness (%)",
+          "max_brightness_pct": "Maximum brightness (%)",
+          "min_kelvin": "Minimum color temperature (K)",
+          "max_kelvin": "Maximum color temperature (K)",
+          "enabled": "Enabled at startup"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Simple Adaptive Lighting options",
+        "data": {
+          "name": "Name",
+          "target_lights": "Target lights",
+          "min_brightness_pct": "Minimum brightness (%)",
+          "max_brightness_pct": "Maximum brightness (%)",
+          "min_kelvin": "Minimum color temperature (K)",
+          "max_kelvin": "Maximum color temperature (K)",
+          "enabled": "Enabled"
+        }
+      }
+    }
+  }
+}
