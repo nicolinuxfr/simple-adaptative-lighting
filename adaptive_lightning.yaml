@@ -91,12 +91,17 @@ blueprint:
           mode: slider
           unit_of_measurement: K
 
-    peak_time:
-      name: Peak time
-      description: Local time when brightness/kelvin should reach maximum.
-      default: "12:00:00"
+    peak_plateau_min:
+      name: Peak plateau half-width (minutes)
+      description: Keep max values from (solar peak - N min) to (solar peak + N min).
+      default: 60
       selector:
-        time: {}
+        number:
+          min: 0
+          max: 240
+          step: 5
+          mode: slider
+          unit_of_measurement: min
 
 mode: single
 
@@ -109,7 +114,7 @@ variables:
   b_day: !input brightness_day
   k_night: !input kelvin_night
   k_day: !input kelvin_day
-  peak_time_value: !input peak_time
+  plateau_min: !input peak_plateau_min
   light_entities: >
     {% if room_lights is string %}
       {{ [room_lights] }}
@@ -159,22 +164,26 @@ action:
       n: "{{ now() }}"
       nr: "{{ as_datetime(state_attr('sun.sun', 'next_rising')) }}"
       ns: "{{ as_datetime(state_attr('sun.sun', 'next_setting')) }}"
-      peak_dt: "{{ today_at(peak_time_value) }}"
-      # Piecewise curve sunrise->peak->sunset, with maximum at configurable clock time.
+      # Piecewise curve sunrise->solar_peak->sunset with a flat max plateau around solar peak.
       ratio: >
-        {% if nr and ns and (nr > ns) and peak_dt %}
+        {% if nr and ns and (nr > ns) %}
           {% set sunrise = nr - timedelta(days=1) %}
           {% set sunset = ns %}
           {% set t = as_timestamp(n) %}
           {% set s = as_timestamp(sunrise) %}
-          {% set p = as_timestamp(peak_dt) %}
           {% set e = as_timestamp(sunset) %}
+          {% set p = (s + e) / 2 %}
+          {% set w = (plateau_min | int(60)) * 60 %}
+          {% set ps = p - w %}
+          {% set pe = p + w %}
           {% if t <= s or t >= e %}
             0
-          {% elif t <= p and p > s %}
-            {{ (t - s) / (p - s) }}
-          {% elif e > p %}
-            {{ (e - t) / (e - p) }}
+          {% elif t < ps and ps > s %}
+            {{ (t - s) / (ps - s) }}
+          {% elif t <= pe %}
+            1
+          {% elif e > pe %}
+            {{ (e - t) / (e - pe) }}
           {% else %}
             0
           {% endif %}
