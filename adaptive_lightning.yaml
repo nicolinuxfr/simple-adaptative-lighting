@@ -103,6 +103,7 @@ blueprint:
           mode: slider
           unit_of_measurement: min
 
+
 mode: restart
 
 variables:
@@ -185,7 +186,7 @@ action:
           {% set s = (nr_ts | float(0)) - 86400 %}
           {% set e = ns_ts | float(0) %}
           {% set p = (s + e) / 2 %}
-          {% set w = (plateau_min | int(60)) * 60 %}
+          {% set w = (plateau_min | float(60)) * 60 %}
           {% set ps = p - w %}
           {% set pe = p + w %}
           {% if t <= s or t >= e %}
@@ -208,6 +209,14 @@ action:
       target_kelvin: >
         {{ (k_night | float(2200) + (k_day | float(5000) - k_night | float(2200)) * (ratio | float(0)))
            | round(0) | int }}
+
+  - event: adaptive_lighting_value
+    event_data:
+      kelvin: "{{ target_kelvin }}"
+      brightness_pct: "{{ target_brightness }}"
+      ratio: "{{ ratio | float(0) }}"
+      trigger_id: "{{ trigger.id }}"
+      lights: "{{ target_lights_to_update }}"
 
   - repeat:
       for_each: "{{ target_lights_to_update }}"
