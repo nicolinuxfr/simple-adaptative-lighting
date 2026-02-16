@@ -16,6 +16,12 @@ blueprint:
           domain: light
           multiple: true
 
+    instance_id:
+      name: Instance id
+      description: "Unique id for this blueprint instance (example: salon, chambre_parentale)."
+      selector:
+        text: {}
+
     auto_mode_boolean:
       name: Adaptive auto mode
       description: Optional input_boolean controlling adaptive mode (on = adaptive active, off = manual mode).
@@ -108,6 +114,7 @@ mode: restart
 
 variables:
   room_lights: !input target_lights
+  instance_id_value: !input instance_id
   auto_mode_entity: !input auto_mode_boolean
   interval_min: !input update_interval_min
   fade_s: !input transition_sec
@@ -212,6 +219,7 @@ action:
 
   - event: adaptive_lighting_value
     event_data:
+      instance_id: "{{ instance_id_value }}"
       kelvin: "{{ target_kelvin }}"
       brightness_pct: "{{ target_brightness }}"
       ratio: "{{ ratio | float(0) }}"
