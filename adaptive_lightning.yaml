@@ -216,7 +216,7 @@ action:
             modes: "{{ state_attr(repeat.item, 'supported_color_modes') or [] }}"
             min_k: "{{ state_attr(repeat.item, 'min_color_temp_kelvin') | float(0) }}"
             max_k: "{{ state_attr(repeat.item, 'max_color_temp_kelvin') | float(0) }}"
-            sf: "{{ state_attr(repeat.item, 'supported_features') | int(0) }}"
+            has_brightness_attr: "{{ state_attr(repeat.item, 'brightness') is not none }}"
             supports_ct: >
               {{ 'color_temp' in modes
                  or (min_k > 0 and max_k > 0)
@@ -225,7 +225,7 @@ action:
             # In Z2M/groups, supported_color_modes can be empty or partial.
             # Default to brightness-capable unless explicitly onoff-only.
             supports_brightness: >
-              {{ ((sf & 1) > 0)
+              {{ has_brightness_attr
                  or (modes | count == 0)
                  or not ((modes | count == 1) and (modes[0] == 'onoff')) }}
             clamped_kelvin: >
