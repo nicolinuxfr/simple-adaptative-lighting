@@ -231,7 +231,7 @@ action:
                     entity_id: "{{ repeat.item }}"
                   data:
                     brightness_pct: "{{ target_brightness }}"
-                    kelvin: "{{ clamped_kelvin }}"
+                    color_temp_kelvin: "{{ clamped_kelvin }}"
                     transition: "{{ fade_s | int(2) }}"
             - conditions:
                 - condition: template
@@ -251,7 +251,7 @@ action:
                   target:
                     entity_id: "{{ repeat.item }}"
                   data:
-                    kelvin: "{{ clamped_kelvin }}"
+                    color_temp_kelvin: "{{ clamped_kelvin }}"
                     transition: "{{ fade_s | int(2) }}"
           default:
             - service: light.turn_on
