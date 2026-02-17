@@ -207,6 +207,11 @@ trigger:
     minutes: "/1"
     id: tick
 
+  # Re-apply immediately after automation reload/save in HA UI.
+  - platform: event
+    event_type: automation_reloaded
+    id: automation_reloaded
+
   - platform: state
     entity_id: !input target_lights
     to: "on"
