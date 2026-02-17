@@ -168,6 +168,10 @@ blueprint:
 
 mode: restart
 
+trigger_variables:
+  night_mode_enabled_var: !input enable_night_mode
+  night_mode_entity_var: !input night_mode_boolean
+
 variables:
   room_lights: !input target_lights
   auto_mode_enabled: !input enable_auto_mode
@@ -217,6 +221,15 @@ trigger:
     to: "on"
     id: light_on
 
+  - platform: state
+    entity_id: >
+      {% if night_mode_enabled_var and night_mode_entity_var not in ['', none] %}
+        {{ night_mode_entity_var }}
+      {% else %}
+        []
+      {% endif %}
+    id: night_mode_change
+
   - platform: sun
     event: sunrise
     id: sun_event
@@ -258,6 +271,15 @@ action:
         {% endif %}
       night_override: >
         {{ (night_mode_entity not in ['', none]) and is_state(night_mode_entity, 'on') }}
+      applied_transition_s: >
+        {% if trigger.id == 'night_mode_change'
+              and trigger.to_state is not none
+              and trigger.to_state.state == 'on'
+              and (trigger.from_state is none or trigger.from_state.state != 'on') %}
+          1
+        {% else %}
+          {{ fade_s | int(2) }}
+        {% endif %}
 
   - condition: template
     value_template: "{{ target_lights_to_update | count > 0 }}"
@@ -434,7 +456,7 @@ action:
                   data:
                     brightness_pct: "{{ target_brightness }}"
                     color_temp_kelvin: "{{ clamped_kelvin }}"
-                    transition: "{{ fade_s | int(2) }}"
+                    transition: "{{ applied_transition_s | int(2) }}"
             - conditions:
                 - condition: template
                   value_template: "{{ supports_brightness and not supports_ct }}"
@@ -444,7 +466,7 @@ action:
                     entity_id: "{{ repeat.item }}"
                   data:
                     brightness_pct: "{{ target_brightness }}"
-                    transition: "{{ fade_s | int(2) }}"
+                    transition: "{{ applied_transition_s | int(2) }}"
             - conditions:
                 - condition: template
                   value_template: "{{ (not supports_brightness) and supports_ct }}"
@@ -454,10 +476,10 @@ action:
                     entity_id: "{{ repeat.item }}"
                   data:
                     color_temp_kelvin: "{{ clamped_kelvin }}"
-                    transition: "{{ fade_s | int(2) }}"
+                    transition: "{{ applied_transition_s | int(2) }}"
           default:
             - service: light.turn_on
               target:
                 entity_id: "{{ repeat.item }}"
               data:
-                transition: "{{ fade_s | int(2) }}"
+                transition: "{{ applied_transition_s | int(2) }}"
