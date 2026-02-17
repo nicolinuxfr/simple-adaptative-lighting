@@ -4,10 +4,8 @@ blueprint:
     Lightweight adaptive lighting blueprint.
     It updates brightness and white temperature from sun elevation, for the lights
     currently on in a room.
-    Optional night mode can be linked to an external input_boolean to force a fixed
-    brightness and color temperature while active.
     Manual control is handled with a dedicated input_boolean: when off, adaptive
-    updates are paused; when on, updates resume. Night mode override has priority.
+    updates are paused; when on, updates resume.
   domain: automation
   homeassistant:
     min_version: 2024.6.0
@@ -123,59 +121,12 @@ blueprint:
             entity:
               domain: input_boolean
 
-    night_mode_section:
-      name: Optional night mode override
-      icon: mdi:weather-night
-      collapsed: true
-      input:
-        enable_night_mode:
-          name: Enable night mode override
-          description: Tick to force fixed night values when the selected input_boolean is on.
-          default: false
-          selector:
-            boolean:
-
-        night_mode_boolean:
-          name: Night mode override entity
-          description: input_boolean forcing fixed brightness and color temperature while on.
-          default: ""
-          selector:
-            entity:
-              domain: input_boolean
-
-        night_mode_brightness:
-          name: Night mode fixed brightness (%)
-          default: 5
-          selector:
-            number:
-              min: 1
-              max: 50
-              step: 1
-              mode: slider
-              unit_of_measurement: "%"
-
-        night_mode_kelvin:
-          name: Night mode fixed kelvin
-          default: 2200
-          selector:
-            number:
-              min: 2000
-              max: 4000
-              step: 50
-              mode: slider
-              unit_of_measurement: K
-
-
 mode: restart
 
 variables:
   room_lights: !input target_lights
   auto_mode_enabled: !input enable_auto_mode
   auto_mode_input_entity: !input auto_mode_boolean
-  night_mode_enabled: !input enable_night_mode
-  night_mode_input_entity: !input night_mode_boolean
-  night_mode_brightness: !input night_mode_brightness
-  night_mode_kelvin: !input night_mode_kelvin
   interval_min: !input update_interval_min
   fade_s: !input transition_sec
   b_night: !input brightness_night
@@ -205,10 +156,6 @@ trigger:
     to: "on"
     id: light_on
 
-  - platform: event
-    event_type: state_changed
-    id: night_mode_change
-
   - platform: sun
     event: sunrise
     id: sun_event
@@ -220,17 +167,7 @@ trigger:
 condition:
   - condition: template
     value_template: >
-      {% set night_override = night_mode_enabled
-         and night_mode_input_entity not in ['', none]
-         and is_state(night_mode_input_entity, 'on') %}
-      {{ (trigger.id == 'night_mode_change'
-            and night_mode_enabled
-            and night_mode_input_entity not in ['', none]
-            and trigger.event is defined
-            and trigger.event.data is defined
-            and trigger.event.data.entity_id == night_mode_input_entity)
-         or night_override
-         or not auto_mode_enabled
+      {{ not auto_mode_enabled
          or auto_mode_input_entity in ['', none]
          or is_state(auto_mode_input_entity, 'on') }}
 
@@ -259,36 +196,8 @@ action:
         {% else %}
           {{ on_lights }}
         {% endif %}
-      night_override: >
-        {{ night_mode_enabled
-           and night_mode_input_entity not in ['', none]
-           and is_state(night_mode_input_entity, 'on') }}
-      night_mode_to_state: >
-        {% if trigger.id == 'night_mode_change'
-              and trigger.event is defined
-              and trigger.event.data is defined
-              and trigger.event.data.new_state is not none %}
-          {{ trigger.event.data.new_state.state }}
-        {% else %}
-          {{ none }}
-        {% endif %}
-      night_mode_from_state: >
-        {% if trigger.id == 'night_mode_change'
-              and trigger.event is defined
-              and trigger.event.data is defined
-              and trigger.event.data.old_state is not none %}
-          {{ trigger.event.data.old_state.state }}
-        {% else %}
-          {{ none }}
-        {% endif %}
       applied_transition_s: >
-        {% if trigger.id == 'night_mode_change'
-              and night_mode_to_state == 'on'
-              and night_mode_from_state != 'on' %}
-          1
-        {% else %}
-          {{ fade_s | int(2) }}
-        {% endif %}
+        {{ fade_s | int(2) }}
 
   - condition: template
     value_template: "{{ target_lights_to_update | count > 0 }}"
@@ -341,93 +250,73 @@ action:
           0
         {% endif %}
       target_brightness: >
-        {% if night_override %}
-          {{ night_mode_brightness | int(5) }}
+        {% set b_min = [b_night | float(1), b_day | float(100)] | min %}
+        {% set b_max = [b_night | float(1), b_day | float(100)] | max %}
+        {% set o = day_span_s | float(0) %}
+        {% set t = n_ts | float(0) %}
+        {% set nr = nr_ts | float(0) %}
+        {% set ns = ns_ts | float(0) %}
+        {% set sr0 = (nr - (86400 if nr > ns else 0)) - o %}
+        {% set ss0 = ns + o %}
+        {% set sr_prev = sr0 - 86400 %}
+        {% set ss_prev = ss0 - 86400 %}
+        {% set plateau_target_s = 21600 %}
+        {% set edge_s = 900 %}
+        {% if t >= sr0 and t < ss0 %}
+          {% set day_sr = sr0 %}
+          {% set day_ss = ss0 %}
+        {% elif t >= sr_prev and t < ss_prev %}
+          {% set day_sr = sr_prev %}
+          {% set day_ss = ss_prev %}
         {% else %}
-          {% set b_min = [b_night | float(1), b_day | float(100)] | min %}
-          {% set b_max = [b_night | float(1), b_day | float(100)] | max %}
-          {% set o = day_span_s | float(0) %}
-          {% set t = n_ts | float(0) %}
-          {% set nr = nr_ts | float(0) %}
-          {% set ns = ns_ts | float(0) %}
-          {% set sr0 = (nr - (86400 if nr > ns else 0)) - o %}
-          {% set ss0 = ns + o %}
-          {% set sr_prev = sr0 - 86400 %}
-          {% set ss_prev = ss0 - 86400 %}
-          {% set plateau_target_s = 21600 %}
-          {% set edge_s = 900 %}
-          {% if t >= sr0 and t < ss0 %}
-            {% set day_sr = sr0 %}
-            {% set day_ss = ss0 %}
-          {% elif t >= sr_prev and t < ss_prev %}
-            {% set day_sr = sr_prev %}
-            {% set day_ss = ss_prev %}
+          {% set day_sr = none %}
+          {% set day_ss = none %}
+        {% endif %}
+        {% if day_sr is none %}
+          {{ b_min | round(0) | int }}
+        {% else %}
+          {% set day_len_s = day_ss - day_sr %}
+          {% set ramp_s = [0, (day_len_s - plateau_target_s) / 2] | max %}
+          {% set up_start = day_sr - edge_s %}
+          {% set up_end = day_sr + ramp_s %}
+          {% set down_start = day_ss - ramp_s %}
+          {% set down_end = day_ss + edge_s %}
+          {% if t < up_start %}
+            {% set b = b_min %}
+          {% elif t <= up_end %}
+            {% set u = (t - up_start) / (up_end - up_start) %}
+            {% set u = [0, [u, 1] | min] | max %}
+            {% set z = (2 * u) - 1 %}
+            {% set az = 1.4 * z %}
+            {% set z2 = az * az %}
+            {% set tnh = (az * (27 + z2)) / (27 + (9 * z2)) %}
+            {% set s = (tnh + 1) / 2 %}
+            {% set b = b_min + (b_max - b_min) * s %}
+          {% elif t < down_start %}
+            {% set b = b_max %}
+          {% elif t <= down_end %}
+            {% set u = (t - down_start) / (down_end - down_start) %}
+            {% set u = [0, [u, 1] | min] | max %}
+            {% set z = (2 * u) - 1 %}
+            {% set az = 1.4 * z %}
+            {% set z2 = az * az %}
+            {% set tnh = (az * (27 + z2)) / (27 + (9 * z2)) %}
+            {% set s = (tnh + 1) / 2 %}
+            {% set b = b_max - (b_max - b_min) * s %}
           {% else %}
-            {% set day_sr = none %}
-            {% set day_ss = none %}
+            {% set b = b_min %}
           {% endif %}
-          {% if day_sr is none %}
-            {{ b_min | round(0) | int }}
-          {% else %}
-            {% set day_len_s = day_ss - day_sr %}
-            {% set ramp_s = [0, (day_len_s - plateau_target_s) / 2] | max %}
-            {% set up_start = day_sr - edge_s %}
-            {% set up_end = day_sr + ramp_s %}
-            {% set down_start = day_ss - ramp_s %}
-            {% set down_end = day_ss + edge_s %}
-            {% if t < up_start %}
-              {% set b = b_min %}
-            {% elif t <= up_end %}
-              {% set u = (t - up_start) / (up_end - up_start) %}
-              {% set u = [0, [u, 1] | min] | max %}
-              {% set z = (2 * u) - 1 %}
-              {% set az = 1.4 * z %}
-              {% set z2 = az * az %}
-              {% set tnh = (az * (27 + z2)) / (27 + (9 * z2)) %}
-              {% set s = (tnh + 1) / 2 %}
-              {% set b = b_min + (b_max - b_min) * s %}
-            {% elif t < down_start %}
-              {% set b = b_max %}
-            {% elif t <= down_end %}
-              {% set u = (t - down_start) / (down_end - down_start) %}
-              {% set u = [0, [u, 1] | min] | max %}
-              {% set z = (2 * u) - 1 %}
-              {% set az = 1.4 * z %}
-              {% set z2 = az * az %}
-              {% set tnh = (az * (27 + z2)) / (27 + (9 * z2)) %}
-              {% set s = (tnh + 1) / 2 %}
-              {% set b = b_max - (b_max - b_min) * s %}
-            {% else %}
-              {% set b = b_min %}
-            {% endif %}
-            {{ [b_min, [b, b_max] | min] | max | round(0) | int }}
-          {% endif %}
+          {{ [b_min, [b, b_max] | min] | max | round(0) | int }}
         {% endif %}
       target_kelvin: >
-        {% if night_override %}
-          {{ night_mode_kelvin | int(2200) }}
+        {% set p = sun_position | float(0) %}
+        {% set k_min = [k_night | float(2200), k_day | float(5000)] | min %}
+        {% set k_max = [k_night | float(2200), k_day | float(5000)] | max %}
+        {% if p > 0 %}
+          {{ ((k_max - k_min) * p + k_min) | round(0) | int }}
         {% else %}
-          {% set p = sun_position | float(0) %}
-          {% set k_min = [k_night | float(2200), k_day | float(5000)] | min %}
-          {% set k_max = [k_night | float(2200), k_day | float(5000)] | max %}
-          {% if p > 0 %}
-            {{ ((k_max - k_min) * p + k_min) | round(0) | int }}
-          {% else %}
-            {{ k_min | round(0) | int }}
-          {% endif %}
+          {{ k_min | round(0) | int }}
         {% endif %}
-
-  - event: adaptive_lighting_value
-    event_data:
-      instance_id: "{{ this.entity_id }}"
-      kelvin: "{{ target_kelvin }}"
-      brightness_pct: "{{ target_brightness }}"
-      ratio: "{{ sun_position | float(0) }}"
-      sun_position: "{{ sun_position | float(0) }}"
-      day_span_adjustment_min: "{{ day_span_adjustment_min | int(0) }}"
-      night_override: "{{ night_override }}"
-      trigger_id: "{{ trigger.id }}"
-      lights: "{{ target_lights_to_update }}"
 
   - repeat:
       for_each: "{{ target_lights_to_update }}"
