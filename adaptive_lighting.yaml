@@ -224,10 +224,39 @@ action:
         {% set p = sun_position | float(0) %}
         {% set b_min = [b_night | float(1), b_day | float(100)] | min %}
         {% set b_max = [b_night | float(1), b_day | float(100)] | max %}
-        {% if p > 0 %}
-          {{ b_max | round(0) | int }}
+        {% set dark_s = 900 %}
+        {% set light_s = 3600 %}
+        {% set above = is_state('sun.sun', 'above_horizon') %}
+        {% set rising = state_attr('sun.sun', 'rising') %}
+        {% if above and rising %}
+          {% set event = 'sunrise' %}
+          {% set ts_event = (nr_ts | float(0)) - 86400 %}
+        {% elif above and not rising %}
+          {% set event = 'sunset' %}
+          {% set ts_event = ns_ts | float(0) %}
+        {% elif (not above) and rising %}
+          {% set event = 'sunrise' %}
+          {% set ts_event = nr_ts | float(0) %}
         {% else %}
-          {{ ((b_max - b_min) * (1 + p) + b_min) | round(0) | int }}
+          {% set event = 'sunset' %}
+          {% set ts_event = (ns_ts | float(0)) - 86400 %}
+        {% endif %}
+        {% if event == 'sunrise' %}
+          {% set x1 = ts_event - dark_s %}
+          {% set x2 = ts_event + light_s %}
+          {% set y1 = b_min %}
+          {% set y2 = b_max %}
+        {% else %}
+          {% set x1 = ts_event - light_s %}
+          {% set x2 = ts_event + dark_s %}
+          {% set y1 = b_max %}
+          {% set y2 = b_min %}
+        {% endif %}
+        {% if x2 != x1 %}
+          {% set b = y1 + ((n_ts | float(0)) - x1) * (y2 - y1) / (x2 - x1) %}
+          {{ [b_min, [b, b_max] | min] | max | round(0) | int }}
+        {% else %}
+          {{ b_min | round(0) | int }}
         {% endif %}
       target_kelvin: >
         {% set p = sun_position | float(0) %}
