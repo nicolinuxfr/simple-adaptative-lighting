@@ -91,9 +91,9 @@ blueprint:
           mode: slider
           unit_of_measurement: K
 
-    sun_offset_min:
-      name: Sun offset (minutes)
-      description: Shift adaptation timing relative to sun events (+ = earlier, - = later).
+    day_span_adjustment_min:
+      name: Day span adjustment (minutes)
+      description: Extend the adaptive day beyond sun events (+) or shorten it (-). Example: -60 starts 60 min later and ends 60 min earlier.
       default: 0
       selector:
         number:
@@ -115,7 +115,7 @@ variables:
   b_day: !input brightness_day
   k_night: !input kelvin_night
   k_day: !input kelvin_day
-  sun_offset_min: !input sun_offset_min
+  day_span_adjustment_min: !input day_span_adjustment_min
   light_entities: >
     {% if room_lights is string %}
       {{ [room_lights] }}
@@ -177,47 +177,44 @@ action:
 
   - variables:
       n_ts: "{{ as_timestamp(now()) }}"
-      n_shifted_ts: "{{ (as_timestamp(now()) | float(0)) + (sun_offset_min | float(0) * 60) }}"
       nr_ts: "{{ as_timestamp(state_attr('sun.sun', 'next_rising')) }}"
       ns_ts: "{{ as_timestamp(state_attr('sun.sun', 'next_setting')) }}"
-      nn_ts: "{{ as_timestamp(state_attr('sun.sun', 'next_noon')) }}"
-      nm_ts: "{{ as_timestamp(state_attr('sun.sun', 'next_midnight')) }}"
-      # Adaptive Lighting default sun position in [-1, 1]:
-      # -1 at midnight, 0 at sunrise/sunset, +1 at solar noon.
+      day_span_s: "{{ day_span_adjustment_min | float(0) * 60 }}"
+      # Adaptive day span:
+      # +offset => sunrise earlier + sunset later (longer day)
+      # -offset => sunrise later + sunset earlier (shorter day)
+      # sun_position in [-1, 1]: 0 at adjusted sunrise/sunset, +1 at adjusted noon, -1 at adjusted midnight.
       sun_position: >
-        {% if nr_ts and ns_ts and nn_ts and nm_ts %}
-          {% set t = n_shifted_ts | float(0) %}
+        {% if nr_ts and ns_ts %}
+          {% set t = n_ts | float(0) %}
           {% set nr = nr_ts | float(0) %}
           {% set ns = ns_ts | float(0) %}
-          {% set nn = nn_ts | float(0) %}
-          {% set nm = nm_ts | float(0) %}
-          {% set prev_nr = nr - 86400 %}
-          {% set prev_ns = ns - 86400 %}
-          {% set prev_nn = nn - 86400 %}
-          {% set prev_nm = nm - 86400 %}
+          {% set o = day_span_s | float(0) %}
+          {% set sr_prev = (nr - 86400) - o %}
+          {% set sr_next = nr - o %}
+          {% set ss_prev = (ns - 86400) + o %}
+          {% set ss_next = ns + o %}
           {% set above = is_state('sun.sun', 'above_horizon') %}
-          {% set rising = state_attr('sun.sun', 'rising') %}
-          {% if above and rising %}
-            {% set h = nn %}
-            {% set x = prev_nr %}
-            {% set k = 1 %}
-          {% elif above and not rising %}
-            {% set h = prev_nn %}
-            {% set x = ns %}
-            {% set k = 1 %}
-          {% elif (not above) and rising %}
-            {% set h = prev_nm %}
-            {% set x = nr %}
-            {% set k = -1 %}
+          {% if above %}
+            {% set day_start = sr_prev %}
+            {% set day_end = ss_next %}
+            {% if (day_end - day_start) != 0 %}
+              {% set d = (t - day_start) / (day_end - day_start) %}
+              {% set d = [0, [d, 1] | min] | max %}
+              {{ (1 - ((2 * d - 1) ** 2)) | float(0) }}
+            {% else %}
+              0
+            {% endif %}
           {% else %}
-            {% set h = nm %}
-            {% set x = prev_ns %}
-            {% set k = -1 %}
-          {% endif %}
-          {% if (h - x) != 0 %}
-            {{ (k * (1 - (((t - h) / (h - x)) ** 2))) | float(0) }}
-          {% else %}
-            0
+            {% set night_start = ss_prev %}
+            {% set night_end = sr_next %}
+            {% if (night_end - night_start) != 0 %}
+              {% set n = (t - night_start) / (night_end - night_start) %}
+              {% set n = [0, [n, 1] | min] | max %}
+              {{ (-(1 - ((2 * n - 1) ** 2))) | float(0) }}
+            {% else %}
+              0
+            {% endif %}
           {% endif %}
         {% else %}
           0
@@ -228,20 +225,21 @@ action:
         {% set b_max = [b_night | float(1), b_day | float(100)] | max %}
         {% set dark_s = 900 %}
         {% set light_s = 3600 %}
+        {% set o = day_span_s | float(0) %}
         {% set above = is_state('sun.sun', 'above_horizon') %}
         {% set rising = state_attr('sun.sun', 'rising') %}
         {% if above and rising %}
           {% set event = 'sunrise' %}
-          {% set ts_event = (nr_ts | float(0)) - 86400 %}
+          {% set ts_event = ((nr_ts | float(0)) - 86400) - o %}
         {% elif above and not rising %}
           {% set event = 'sunset' %}
-          {% set ts_event = ns_ts | float(0) %}
+          {% set ts_event = (ns_ts | float(0)) + o %}
         {% elif (not above) and rising %}
           {% set event = 'sunrise' %}
-          {% set ts_event = nr_ts | float(0) %}
+          {% set ts_event = (nr_ts | float(0)) - o %}
         {% else %}
           {% set event = 'sunset' %}
-          {% set ts_event = (ns_ts | float(0)) - 86400 %}
+          {% set ts_event = ((ns_ts | float(0)) - 86400) + o %}
         {% endif %}
         {% if event == 'sunrise' %}
           {% set x1 = ts_event - dark_s %}
@@ -255,7 +253,7 @@ action:
           {% set y2 = b_min %}
         {% endif %}
         {% if x2 != x1 %}
-          {% set b = y1 + ((n_shifted_ts | float(0)) - x1) * (y2 - y1) / (x2 - x1) %}
+          {% set b = y1 + ((n_ts | float(0)) - x1) * (y2 - y1) / (x2 - x1) %}
           {{ [b_min, [b, b_max] | min] | max | round(0) | int }}
         {% else %}
           {{ b_min | round(0) | int }}
@@ -277,7 +275,7 @@ action:
       brightness_pct: "{{ target_brightness }}"
       ratio: "{{ sun_position | float(0) }}"
       sun_position: "{{ sun_position | float(0) }}"
-      sun_offset_min: "{{ sun_offset_min | int(0) }}"
+      day_span_adjustment_min: "{{ day_span_adjustment_min | int(0) }}"
       trigger_id: "{{ trigger.id }}"
       lights: "{{ target_lights_to_update }}"
 
