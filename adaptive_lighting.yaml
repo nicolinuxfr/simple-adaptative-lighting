@@ -91,18 +91,6 @@ blueprint:
           mode: slider
           unit_of_measurement: K
 
-    peak_plateau_min:
-      name: Peak plateau half-width (minutes)
-      description: Legacy setting (unused with Adaptive Lighting default algorithm).
-      default: 60
-      selector:
-        number:
-          min: 0
-          max: 240
-          step: 5
-          mode: slider
-          unit_of_measurement: min
-
     sun_offset_min:
       name: Sun offset (minutes)
       description: Shift adaptation timing relative to sun events (+ = earlier, - = later).
