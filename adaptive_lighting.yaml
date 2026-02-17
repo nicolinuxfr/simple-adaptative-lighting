@@ -4,8 +4,10 @@ blueprint:
     Lightweight adaptive lighting blueprint.
     It updates brightness and white temperature from sun elevation, for the lights
     currently on in a room.
+    Optional night mode can be linked to an external input_boolean to force a fixed
+    brightness and color temperature while active.
     Manual control is handled with a dedicated input_boolean: when off, adaptive
-    updates are paused; when on, updates resume.
+    updates are paused; when on, updates resume. Night mode override has priority.
   domain: automation
   input:
     target_lights:
@@ -23,6 +25,36 @@ blueprint:
       selector:
         entity:
           domain: input_boolean
+
+    night_mode_boolean:
+      name: Night mode override
+      description: Optional input_boolean forcing fixed brightness and color temperature while on.
+      default: ""
+      selector:
+        entity:
+          domain: input_boolean
+
+    night_mode_brightness:
+      name: Night mode fixed brightness (%)
+      default: 5
+      selector:
+        number:
+          min: 1
+          max: 50
+          step: 1
+          mode: slider
+          unit_of_measurement: "%"
+
+    night_mode_kelvin:
+      name: Night mode fixed kelvin
+      default: 2200
+      selector:
+        number:
+          min: 2000
+          max: 4000
+          step: 50
+          mode: slider
+          unit_of_measurement: K
 
     update_interval_min:
       name: Update interval (minutes)
@@ -93,7 +125,7 @@ blueprint:
 
     day_span_adjustment_min:
       name: Day span adjustment (minutes)
-      description: Extend the adaptive day beyond sun events (+) or shorten it (-). Example: -60 starts 60 min later and ends 60 min earlier.
+      description: "Extend the adaptive day beyond sun events (+) or shorten it (-). Example: -60 starts 60 min later and ends 60 min earlier."
       default: 0
       selector:
         number:
@@ -109,6 +141,9 @@ mode: restart
 variables:
   room_lights: !input target_lights
   auto_mode_entity: !input auto_mode_boolean
+  night_mode_entity: !input night_mode_boolean
+  night_mode_brightness: !input night_mode_brightness
+  night_mode_kelvin: !input night_mode_kelvin
   interval_min: !input update_interval_min
   fade_s: !input transition_sec
   b_night: !input brightness_night
@@ -144,7 +179,8 @@ trigger:
 condition:
   - condition: template
     value_template: >
-      {{ auto_mode_entity in ['', none] or is_state(auto_mode_entity, 'on') }}
+      {% set night_override = (night_mode_entity not in ['', none]) and is_state(night_mode_entity, 'on') %}
+      {{ night_override or auto_mode_entity in ['', none] or is_state(auto_mode_entity, 'on') }}
 
   - condition: template
     value_template: >
@@ -171,6 +207,8 @@ action:
         {% else %}
           {{ on_lights }}
         {% endif %}
+      night_override: >
+        {{ (night_mode_entity not in ['', none]) and is_state(night_mode_entity, 'on') }}
 
   - condition: template
     value_template: "{{ target_lights_to_update | count > 0 }}"
@@ -237,69 +275,76 @@ action:
           0
         {% endif %}
       target_brightness: >
-        {% set p = sun_position | float(0) %}
-        {% set b_min = [b_night | float(1), b_day | float(100)] | min %}
-        {% set b_max = [b_night | float(1), b_day | float(100)] | max %}
-        {% set dark_s = 900 %}
-        {% set light_s = 3600 %}
-        {% set o = day_span_s | float(0) %}
-        {% set t = n_ts | float(0) %}
-        {% set sr_prev = ((nr_ts | float(0)) - 86400) - o %}
-        {% set sr_next = (nr_ts | float(0)) - o %}
-        {% set ss_prev = ((ns_ts | float(0)) - 86400) + o %}
-        {% set ss_next = (ns_ts | float(0)) + o %}
-        {% if t >= sr_prev and t < ss_prev %}
-          {% set above = true %}
-          {% set day_sr = sr_prev %}
-          {% set day_ss = ss_prev %}
-        {% elif t >= sr_next and t < ss_next %}
-          {% set above = true %}
-          {% set day_sr = sr_next %}
-          {% set day_ss = ss_next %}
+        {% if night_override %}
+          {{ night_mode_brightness | int(5) }}
         {% else %}
-          {% set above = false %}
-        {% endif %}
-        {% if above %}
-          {% set day_noon = (day_sr + day_ss) / 2 %}
-          {% set rising = t < day_noon %}
-        {% else %}
-          {% set rising = false %}
-        {% endif %}
-        {% if above and rising %}
-          {% set event = 'sunrise' %}
-          {% set ts_event = day_sr %}
-        {% elif above and not rising %}
-          {% set event = 'sunset' %}
-          {% set ts_event = day_ss %}
-        {% else %}
-          {% set event = 'sunrise' %}
-          {% set ts_event = sr_next %}
-        {% endif %}
-        {% if event == 'sunrise' %}
-          {% set x1 = ts_event - dark_s %}
-          {% set x2 = ts_event + light_s %}
-          {% set y1 = b_min %}
-          {% set y2 = b_max %}
-        {% else %}
-          {% set x1 = ts_event - light_s %}
-          {% set x2 = ts_event + dark_s %}
-          {% set y1 = b_max %}
-          {% set y2 = b_min %}
-        {% endif %}
-        {% if x2 != x1 %}
-          {% set b = y1 + ((n_ts | float(0)) - x1) * (y2 - y1) / (x2 - x1) %}
-          {{ [b_min, [b, b_max] | min] | max | round(0) | int }}
-        {% else %}
-          {{ b_min | round(0) | int }}
+          {% set b_min = [b_night | float(1), b_day | float(100)] | min %}
+          {% set b_max = [b_night | float(1), b_day | float(100)] | max %}
+          {% set dark_s = 900 %}
+          {% set light_s = 3600 %}
+          {% set o = day_span_s | float(0) %}
+          {% set t = n_ts | float(0) %}
+          {% set sr_prev = ((nr_ts | float(0)) - 86400) - o %}
+          {% set sr_next = (nr_ts | float(0)) - o %}
+          {% set ss_prev = ((ns_ts | float(0)) - 86400) + o %}
+          {% set ss_next = (ns_ts | float(0)) + o %}
+          {% if t >= sr_prev and t < ss_prev %}
+            {% set above = true %}
+            {% set day_sr = sr_prev %}
+            {% set day_ss = ss_prev %}
+          {% elif t >= sr_next and t < ss_next %}
+            {% set above = true %}
+            {% set day_sr = sr_next %}
+            {% set day_ss = ss_next %}
+          {% else %}
+            {% set above = false %}
+          {% endif %}
+          {% if above %}
+            {% set day_noon = (day_sr + day_ss) / 2 %}
+            {% set rising = t < day_noon %}
+          {% else %}
+            {% set rising = false %}
+          {% endif %}
+          {% if above and rising %}
+            {% set event = 'sunrise' %}
+            {% set ts_event = day_sr %}
+          {% elif above and not rising %}
+            {% set event = 'sunset' %}
+            {% set ts_event = day_ss %}
+          {% else %}
+            {% set event = 'sunrise' %}
+            {% set ts_event = sr_next %}
+          {% endif %}
+          {% if event == 'sunrise' %}
+            {% set x1 = ts_event - dark_s %}
+            {% set x2 = ts_event + light_s %}
+            {% set y1 = b_min %}
+            {% set y2 = b_max %}
+          {% else %}
+            {% set x1 = ts_event - light_s %}
+            {% set x2 = ts_event + dark_s %}
+            {% set y1 = b_max %}
+            {% set y2 = b_min %}
+          {% endif %}
+          {% if x2 != x1 %}
+            {% set b = y1 + ((n_ts | float(0)) - x1) * (y2 - y1) / (x2 - x1) %}
+            {{ [b_min, [b, b_max] | min] | max | round(0) | int }}
+          {% else %}
+            {{ b_min | round(0) | int }}
+          {% endif %}
         {% endif %}
       target_kelvin: >
-        {% set p = sun_position | float(0) %}
-        {% set k_min = [k_night | float(2200), k_day | float(5000)] | min %}
-        {% set k_max = [k_night | float(2200), k_day | float(5000)] | max %}
-        {% if p > 0 %}
-          {{ ((k_max - k_min) * p + k_min) | round(0) | int }}
+        {% if night_override %}
+          {{ night_mode_kelvin | int(2200) }}
         {% else %}
-          {{ k_min | round(0) | int }}
+          {% set p = sun_position | float(0) %}
+          {% set k_min = [k_night | float(2200), k_day | float(5000)] | min %}
+          {% set k_max = [k_night | float(2200), k_day | float(5000)] | max %}
+          {% if p > 0 %}
+            {{ ((k_max - k_min) * p + k_min) | round(0) | int }}
+          {% else %}
+            {{ k_min | round(0) | int }}
+          {% endif %}
         {% endif %}
 
   - event: adaptive_lighting_value
@@ -310,6 +355,7 @@ action:
       ratio: "{{ sun_position | float(0) }}"
       sun_position: "{{ sun_position | float(0) }}"
       day_span_adjustment_min: "{{ day_span_adjustment_min | int(0) }}"
+      night_override: "{{ night_override }}"
       trigger_id: "{{ trigger.id }}"
       lights: "{{ target_lights_to_update }}"
 
