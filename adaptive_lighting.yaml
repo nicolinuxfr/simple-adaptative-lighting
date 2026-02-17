@@ -194,9 +194,18 @@ action:
           {% set sr_next = nr - o %}
           {% set ss_prev = (ns - 86400) + o %}
           {% set ss_next = ns + o %}
-          {% set above = is_state('sun.sun', 'above_horizon') %}
-          {% if above %}
+          {% if t >= sr_prev and t < ss_prev %}
             {% set day_start = sr_prev %}
+            {% set day_end = ss_prev %}
+            {% if (day_end - day_start) != 0 %}
+              {% set d = (t - day_start) / (day_end - day_start) %}
+              {% set d = [0, [d, 1] | min] | max %}
+              {{ (1 - ((2 * d - 1) ** 2)) | float(0) }}
+            {% else %}
+              0
+            {% endif %}
+          {% elif t >= sr_next and t < ss_next %}
+            {% set day_start = sr_next %}
             {% set day_end = ss_next %}
             {% if (day_end - day_start) != 0 %}
               {% set d = (t - day_start) / (day_end - day_start) %}
@@ -206,8 +215,16 @@ action:
               0
             {% endif %}
           {% else %}
-            {% set night_start = ss_prev %}
-            {% set night_end = sr_next %}
+            {% if t >= ss_prev and t < sr_next %}
+              {% set night_start = ss_prev %}
+              {% set night_end = sr_next %}
+            {% elif t < sr_prev %}
+              {% set night_start = ss_prev - 86400 %}
+              {% set night_end = sr_prev %}
+            {% else %}
+              {% set night_start = ss_next %}
+              {% set night_end = sr_next + 86400 %}
+            {% endif %}
             {% if (night_end - night_start) != 0 %}
               {% set n = (t - night_start) / (night_end - night_start) %}
               {% set n = [0, [n, 1] | min] | max %}
@@ -226,20 +243,37 @@ action:
         {% set dark_s = 900 %}
         {% set light_s = 3600 %}
         {% set o = day_span_s | float(0) %}
-        {% set above = is_state('sun.sun', 'above_horizon') %}
-        {% set rising = state_attr('sun.sun', 'rising') %}
+        {% set t = n_ts | float(0) %}
+        {% set sr_prev = ((nr_ts | float(0)) - 86400) - o %}
+        {% set sr_next = (nr_ts | float(0)) - o %}
+        {% set ss_prev = ((ns_ts | float(0)) - 86400) + o %}
+        {% set ss_next = (ns_ts | float(0)) + o %}
+        {% if t >= sr_prev and t < ss_prev %}
+          {% set above = true %}
+          {% set day_sr = sr_prev %}
+          {% set day_ss = ss_prev %}
+        {% elif t >= sr_next and t < ss_next %}
+          {% set above = true %}
+          {% set day_sr = sr_next %}
+          {% set day_ss = ss_next %}
+        {% else %}
+          {% set above = false %}
+        {% endif %}
+        {% if above %}
+          {% set day_noon = (day_sr + day_ss) / 2 %}
+          {% set rising = t < day_noon %}
+        {% else %}
+          {% set rising = false %}
+        {% endif %}
         {% if above and rising %}
           {% set event = 'sunrise' %}
-          {% set ts_event = ((nr_ts | float(0)) - 86400) - o %}
+          {% set ts_event = day_sr %}
         {% elif above and not rising %}
           {% set event = 'sunset' %}
-          {% set ts_event = (ns_ts | float(0)) + o %}
-        {% elif (not above) and rising %}
-          {% set event = 'sunrise' %}
-          {% set ts_event = (nr_ts | float(0)) - o %}
+          {% set ts_event = day_ss %}
         {% else %}
-          {% set event = 'sunset' %}
-          {% set ts_event = ((ns_ts | float(0)) - 86400) + o %}
+          {% set event = 'sunrise' %}
+          {% set ts_event = sr_next %}
         {% endif %}
         {% if event == 'sunrise' %}
           {% set x1 = ts_event - dark_s %}
