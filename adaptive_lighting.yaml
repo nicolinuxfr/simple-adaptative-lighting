@@ -174,18 +174,6 @@ variables:
   auto_mode_input_entity: !input auto_mode_boolean
   night_mode_enabled: !input enable_night_mode
   night_mode_input_entity: !input night_mode_boolean
-  auto_mode_entity: >
-    {% if auto_mode_enabled %}
-      {{ auto_mode_input_entity }}
-    {% else %}
-      {{ "" }}
-    {% endif %}
-  night_mode_entity: >
-    {% if night_mode_enabled %}
-      {{ night_mode_input_entity }}
-    {% else %}
-      {{ "" }}
-    {% endif %}
   night_mode_brightness: !input night_mode_brightness
   night_mode_kelvin: !input night_mode_kelvin
   interval_min: !input update_interval_min
@@ -232,16 +220,19 @@ trigger:
 condition:
   - condition: template
     value_template: >
-      {% set night_override = (night_mode_entity not in ['', none]) and is_state(night_mode_entity, 'on') %}
+      {% set night_override = night_mode_enabled
+         and night_mode_input_entity not in ['', none]
+         and is_state(night_mode_input_entity, 'on') %}
       {{ (trigger.id == 'night_mode_change'
             and night_mode_enabled
-            and night_mode_entity not in ['', none]
+            and night_mode_input_entity not in ['', none]
             and trigger.event is defined
             and trigger.event.data is defined
-            and trigger.event.data.entity_id == night_mode_entity)
+            and trigger.event.data.entity_id == night_mode_input_entity)
          or night_override
-         or auto_mode_entity in ['', none]
-         or is_state(auto_mode_entity, 'on') }}
+         or not auto_mode_enabled
+         or auto_mode_input_entity in ['', none]
+         or is_state(auto_mode_input_entity, 'on') }}
 
   - condition: template
     value_template: >
@@ -269,7 +260,9 @@ action:
           {{ on_lights }}
         {% endif %}
       night_override: >
-        {{ (night_mode_entity not in ['', none]) and is_state(night_mode_entity, 'on') }}
+        {{ night_mode_enabled
+           and night_mode_input_entity not in ['', none]
+           and is_state(night_mode_input_entity, 'on') }}
       night_mode_to_state: >
         {% if trigger.id == 'night_mode_change'
               and trigger.event is defined
