@@ -9,6 +9,8 @@ blueprint:
     Manual control is handled with a dedicated input_boolean: when off, adaptive
     updates are paused; when on, updates resume. Night mode override has priority.
   domain: automation
+  homeassistant:
+    min_version: 2024.6.0
   input:
     target_lights:
       name: Target lights
@@ -18,130 +20,172 @@ blueprint:
           domain: light
           multiple: true
 
-    auto_mode_boolean:
-      name: Adaptive auto mode
-      description: Optional input_boolean controlling adaptive mode (on = adaptive active, off = manual mode).
-      default: ""
-      selector:
-        entity:
-          domain: input_boolean
+    adaptive_settings:
+      name: Adaptive settings
+      icon: mdi:tune-vertical
+      input:
+        update_interval_min:
+          name: Update interval (minutes)
+          description: Re-apply adaptive values every N minutes.
+          default: 2
+          selector:
+            number:
+              min: 1
+              max: 30
+              step: 1
+              mode: slider
+              unit_of_measurement: min
 
-    night_mode_boolean:
-      name: Night mode override
-      description: Optional input_boolean forcing fixed brightness and color temperature while on.
-      default: ""
-      selector:
-        entity:
-          domain: input_boolean
+        transition_sec:
+          name: Transition duration (seconds)
+          default: 2
+          selector:
+            number:
+              min: 0
+              max: 120
+              step: 1
+              mode: slider
+              unit_of_measurement: s
 
-    night_mode_brightness:
-      name: Night mode fixed brightness (%)
-      default: 5
-      selector:
-        number:
-          min: 1
-          max: 50
-          step: 1
-          mode: slider
-          unit_of_measurement: "%"
+        brightness_night:
+          name: Brightness at night (%)
+          default: 10
+          selector:
+            number:
+              min: 1
+              max: 100
+              step: 1
+              mode: slider
+              unit_of_measurement: "%"
 
-    night_mode_kelvin:
-      name: Night mode fixed kelvin
-      default: 2200
-      selector:
-        number:
-          min: 2000
-          max: 4000
-          step: 50
-          mode: slider
-          unit_of_measurement: K
+        brightness_day:
+          name: Brightness at day peak (%)
+          default: 85
+          selector:
+            number:
+              min: 1
+              max: 100
+              step: 1
+              mode: slider
+              unit_of_measurement: "%"
 
-    update_interval_min:
-      name: Update interval (minutes)
-      description: Re-apply adaptive values every N minutes.
-      default: 2
-      selector:
-        number:
-          min: 1
-          max: 30
-          step: 1
-          mode: slider
-          unit_of_measurement: min
+        kelvin_night:
+          name: Kelvin at night
+          default: 2200
+          selector:
+            number:
+              min: 1800
+              max: 5000
+              step: 50
+              mode: slider
+              unit_of_measurement: K
 
-    transition_sec:
-      name: Transition duration (seconds)
-      default: 2
-      selector:
-        number:
-          min: 0
-          max: 120
-          step: 1
-          mode: slider
-          unit_of_measurement: s
+        kelvin_day:
+          name: Kelvin at day peak
+          default: 5000
+          selector:
+            number:
+              min: 2200
+              max: 9000
+              step: 50
+              mode: slider
+              unit_of_measurement: K
 
-    brightness_night:
-      name: Brightness at night (%)
-      default: 10
-      selector:
-        number:
-          min: 1
-          max: 100
-          step: 1
-          mode: slider
-          unit_of_measurement: "%"
+        day_span_adjustment_min:
+          name: Day span adjustment (minutes)
+          description: "Extend the adaptive day beyond sun events (+) or shorten it (-). Example: -60 starts 60 min later and ends 60 min earlier."
+          default: 0
+          selector:
+            number:
+              min: -120
+              max: 120
+              step: 5
+              mode: slider
+              unit_of_measurement: min
 
-    brightness_day:
-      name: Brightness at day peak (%)
-      default: 85
-      selector:
-        number:
-          min: 1
-          max: 100
-          step: 1
-          mode: slider
-          unit_of_measurement: "%"
+    auto_mode_section:
+      name: Optional auto mode input
+      icon: mdi:toggle-switch
+      collapsed: true
+      input:
+        enable_auto_mode:
+          name: Enable auto mode input_boolean
+          description: Tick to enable manual pause/resume via an input_boolean.
+          default: false
+          selector:
+            boolean:
 
-    kelvin_night:
-      name: Kelvin at night
-      default: 2200
-      selector:
-        number:
-          min: 1800
-          max: 5000
-          step: 50
-          mode: slider
-          unit_of_measurement: K
+        auto_mode_boolean:
+          name: Adaptive auto mode entity
+          description: input_boolean controlling adaptive mode (on = adaptive active, off = manual mode).
+          default: ""
+          selector:
+            entity:
+              domain: input_boolean
 
-    kelvin_day:
-      name: Kelvin at day peak
-      default: 5000
-      selector:
-        number:
-          min: 2200
-          max: 9000
-          step: 50
-          mode: slider
-          unit_of_measurement: K
+    night_mode_section:
+      name: Optional night mode override
+      icon: mdi:weather-night
+      collapsed: true
+      input:
+        enable_night_mode:
+          name: Enable night mode override
+          description: Tick to force fixed night values when the selected input_boolean is on.
+          default: false
+          selector:
+            boolean:
 
-    day_span_adjustment_min:
-      name: Day span adjustment (minutes)
-      description: "Extend the adaptive day beyond sun events (+) or shorten it (-). Example: -60 starts 60 min later and ends 60 min earlier."
-      default: 0
-      selector:
-        number:
-          min: -120
-          max: 120
-          step: 5
-          mode: slider
-          unit_of_measurement: min
+        night_mode_boolean:
+          name: Night mode override entity
+          description: input_boolean forcing fixed brightness and color temperature while on.
+          default: ""
+          selector:
+            entity:
+              domain: input_boolean
+
+        night_mode_brightness:
+          name: Night mode fixed brightness (%)
+          default: 5
+          selector:
+            number:
+              min: 1
+              max: 50
+              step: 1
+              mode: slider
+              unit_of_measurement: "%"
+
+        night_mode_kelvin:
+          name: Night mode fixed kelvin
+          default: 2200
+          selector:
+            number:
+              min: 2000
+              max: 4000
+              step: 50
+              mode: slider
+              unit_of_measurement: K
 
 
 mode: restart
 
 variables:
   room_lights: !input target_lights
-  auto_mode_entity: !input auto_mode_boolean
-  night_mode_entity: !input night_mode_boolean
+  auto_mode_enabled: !input enable_auto_mode
+  auto_mode_input_entity: !input auto_mode_boolean
+  night_mode_enabled: !input enable_night_mode
+  night_mode_input_entity: !input night_mode_boolean
+  auto_mode_entity: >
+    {% if auto_mode_enabled %}
+      {{ auto_mode_input_entity }}
+    {% else %}
+      {{ "" }}
+    {% endif %}
+  night_mode_entity: >
+    {% if night_mode_enabled %}
+      {{ night_mode_input_entity }}
+    {% else %}
+      {{ "" }}
+    {% endif %}
   night_mode_brightness: !input night_mode_brightness
   night_mode_kelvin: !input night_mode_kelvin
   interval_min: !input update_interval_min
