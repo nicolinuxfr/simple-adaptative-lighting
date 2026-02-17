@@ -208,7 +208,7 @@ trigger:
     id: tick
 
   # Re-apply immediately after automation reload/save in HA UI.
-  - platform: event
+  - trigger: event
     event_type: automation_reloaded
     id: automation_reloaded
 
