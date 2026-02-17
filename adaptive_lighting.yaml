@@ -242,7 +242,10 @@ condition:
   - condition: template
     value_template: >
       {% set night_override = (night_mode_entity not in ['', none]) and is_state(night_mode_entity, 'on') %}
-      {{ night_override or auto_mode_entity in ['', none] or is_state(auto_mode_entity, 'on') }}
+      {{ trigger.id == 'night_mode_change'
+         or night_override
+         or auto_mode_entity in ['', none]
+         or is_state(auto_mode_entity, 'on') }}
 
   - condition: template
     value_template: >
