@@ -168,10 +168,6 @@ blueprint:
 
 mode: restart
 
-trigger_variables:
-  night_mode_enabled_var: !input enable_night_mode
-  night_mode_entity_var: !input night_mode_boolean
-
 variables:
   room_lights: !input target_lights
   auto_mode_enabled: !input enable_auto_mode
@@ -221,13 +217,8 @@ trigger:
     to: "on"
     id: light_on
 
-  - platform: state
-    entity_id: >
-      {% if night_mode_enabled_var and night_mode_entity_var not in ['', none] %}
-        {{ night_mode_entity_var }}
-      {% else %}
-        []
-      {% endif %}
+  - platform: event
+    event_type: state_changed
     id: night_mode_change
 
   - platform: sun
@@ -242,7 +233,12 @@ condition:
   - condition: template
     value_template: >
       {% set night_override = (night_mode_entity not in ['', none]) and is_state(night_mode_entity, 'on') %}
-      {{ trigger.id == 'night_mode_change'
+      {{ (trigger.id == 'night_mode_change'
+            and night_mode_enabled
+            and night_mode_entity not in ['', none]
+            and trigger.event is defined
+            and trigger.event.data is defined
+            and trigger.event.data.entity_id == night_mode_entity)
          or night_override
          or auto_mode_entity in ['', none]
          or is_state(auto_mode_entity, 'on') }}
@@ -274,11 +270,28 @@ action:
         {% endif %}
       night_override: >
         {{ (night_mode_entity not in ['', none]) and is_state(night_mode_entity, 'on') }}
+      night_mode_to_state: >
+        {% if trigger.id == 'night_mode_change'
+              and trigger.event is defined
+              and trigger.event.data is defined
+              and trigger.event.data.new_state is not none %}
+          {{ trigger.event.data.new_state.state }}
+        {% else %}
+          {{ none }}
+        {% endif %}
+      night_mode_from_state: >
+        {% if trigger.id == 'night_mode_change'
+              and trigger.event is defined
+              and trigger.event.data is defined
+              and trigger.event.data.old_state is not none %}
+          {{ trigger.event.data.old_state.state }}
+        {% else %}
+          {{ none }}
+        {% endif %}
       applied_transition_s: >
         {% if trigger.id == 'night_mode_change'
-              and trigger.to_state is not none
-              and trigger.to_state.state == 'on'
-              and (trigger.from_state is none or trigger.from_state.state != 'on') %}
+              and night_mode_to_state == 'on'
+              and night_mode_from_state != 'on' %}
           1
         {% else %}
           {{ fade_s | int(2) }}
