@@ -103,6 +103,18 @@ blueprint:
           mode: slider
           unit_of_measurement: min
 
+    sun_offset_min:
+      name: Sun offset (minutes)
+      description: Shift adaptation timing relative to sun events (+ = earlier, - = later).
+      default: 0
+      selector:
+        number:
+          min: -120
+          max: 120
+          step: 5
+          mode: slider
+          unit_of_measurement: min
+
 
 mode: restart
 
@@ -115,6 +127,7 @@ variables:
   b_day: !input brightness_day
   k_night: !input kelvin_night
   k_day: !input kelvin_day
+  sun_offset_min: !input sun_offset_min
   light_entities: >
     {% if room_lights is string %}
       {{ [room_lights] }}
@@ -176,6 +189,7 @@ action:
 
   - variables:
       n_ts: "{{ as_timestamp(now()) }}"
+      n_shifted_ts: "{{ (as_timestamp(now()) | float(0)) + (sun_offset_min | float(0) * 60) }}"
       nr_ts: "{{ as_timestamp(state_attr('sun.sun', 'next_rising')) }}"
       ns_ts: "{{ as_timestamp(state_attr('sun.sun', 'next_setting')) }}"
       nn_ts: "{{ as_timestamp(state_attr('sun.sun', 'next_noon')) }}"
@@ -184,7 +198,7 @@ action:
       # -1 at midnight, 0 at sunrise/sunset, +1 at solar noon.
       sun_position: >
         {% if nr_ts and ns_ts and nn_ts and nm_ts %}
-          {% set t = n_ts | float(0) %}
+          {% set t = n_shifted_ts | float(0) %}
           {% set nr = nr_ts | float(0) %}
           {% set ns = ns_ts | float(0) %}
           {% set nn = nn_ts | float(0) %}
@@ -253,7 +267,7 @@ action:
           {% set y2 = b_min %}
         {% endif %}
         {% if x2 != x1 %}
-          {% set b = y1 + ((n_ts | float(0)) - x1) * (y2 - y1) / (x2 - x1) %}
+          {% set b = y1 + ((n_shifted_ts | float(0)) - x1) * (y2 - y1) / (x2 - x1) %}
           {{ [b_min, [b, b_max] | min] | max | round(0) | int }}
         {% else %}
           {{ b_min | round(0) | int }}
@@ -275,6 +289,7 @@ action:
       brightness_pct: "{{ target_brightness }}"
       ratio: "{{ sun_position | float(0) }}"
       sun_position: "{{ sun_position | float(0) }}"
+      sun_offset_min: "{{ sun_offset_min | int(0) }}"
       trigger_id: "{{ trigger.id }}"
       lights: "{{ target_lights_to_update }}"
 
