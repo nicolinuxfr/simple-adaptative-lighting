@@ -94,7 +94,7 @@ blueprint:
         day_span_adjustment_min:
           name: Day span adjustment (minutes)
           description: "Extend the adaptive day beyond sun events (+) or shorten it (-). Example: -60 starts 60 min later and ends 60 min earlier."
-          default: 30
+          default: 60
           selector:
             number:
               min: -120
@@ -323,7 +323,7 @@ action:
           {% set ss0 = ns + o %}
           {% set sr_prev = sr0 - 86400 %}
           {% set ss_prev = ss0 - 86400 %}
-          {% set plateau_target_s = 25200 %}
+          {% set plateau_target_s = 21600 %}
           {% set edge_s = 900 %}
           {% if t >= sr0 and t < ss0 %}
             {% set day_sr = sr0 %}
