@@ -309,60 +309,62 @@ action:
           {{ night_mode_brightness | int(5) }}
         {% else %}
           {% set b_min = [b_night | float(1), b_day | float(100)] | min %}
-        {% set b_max = [b_night | float(1), b_day | float(100)] | max %}
-        {% set dark_s = 900 %}
-        {% set light_s = 3600 %}
-        {% set o = day_span_s | float(0) %}
-        {% set t = n_ts | float(0) %}
-        {% set nr = nr_ts | float(0) %}
-        {% set ns = ns_ts | float(0) %}
-        {% set sr0 = (nr - (86400 if nr > ns else 0)) - o %}
-        {% set ss0 = ns + o %}
-        {% set sr_prev = sr0 - 86400 %}
-        {% set ss_prev = ss0 - 86400 %}
-        {% if t >= sr0 and t < ss0 %}
-          {% set above = true %}
-          {% set day_sr = sr0 %}
-          {% set day_ss = ss0 %}
-        {% elif t >= sr_prev and t < ss_prev %}
-          {% set above = true %}
-          {% set day_sr = sr_prev %}
-          {% set day_ss = ss_prev %}
-        {% else %}
-          {% set above = false %}
-        {% endif %}
-          {% if above %}
-            {% set day_noon = (day_sr + day_ss) / 2 %}
-            {% set rising = t < day_noon %}
+          {% set b_max = [b_night | float(1), b_day | float(100)] | max %}
+          {% set o = day_span_s | float(0) %}
+          {% set t = n_ts | float(0) %}
+          {% set nr = nr_ts | float(0) %}
+          {% set ns = ns_ts | float(0) %}
+          {% set sr0 = (nr - (86400 if nr > ns else 0)) - o %}
+          {% set ss0 = ns + o %}
+          {% set sr_prev = sr0 - 86400 %}
+          {% set ss_prev = ss0 - 86400 %}
+          {% set plateau_target_s = 25200 %}
+          {% set edge_s = 900 %}
+          {% if t >= sr0 and t < ss0 %}
+            {% set day_sr = sr0 %}
+            {% set day_ss = ss0 %}
+          {% elif t >= sr_prev and t < ss_prev %}
+            {% set day_sr = sr_prev %}
+            {% set day_ss = ss_prev %}
           {% else %}
-            {% set rising = false %}
+            {% set day_sr = none %}
+            {% set day_ss = none %}
           {% endif %}
-          {% if above and rising %}
-            {% set event = 'sunrise' %}
-            {% set ts_event = day_sr %}
-        {% elif above and not rising %}
-          {% set event = 'sunset' %}
-          {% set ts_event = day_ss %}
-        {% else %}
-          {% set event = 'sunrise' %}
-          {% set ts_event = sr0 if t < sr0 else (sr0 + 86400) %}
-        {% endif %}
-          {% if event == 'sunrise' %}
-            {% set x1 = ts_event - dark_s %}
-            {% set x2 = ts_event + light_s %}
-            {% set y1 = b_min %}
-            {% set y2 = b_max %}
-          {% else %}
-            {% set x1 = ts_event - light_s %}
-            {% set x2 = ts_event + dark_s %}
-            {% set y1 = b_max %}
-            {% set y2 = b_min %}
-          {% endif %}
-          {% if x2 != x1 %}
-            {% set b = y1 + ((n_ts | float(0)) - x1) * (y2 - y1) / (x2 - x1) %}
-            {{ [b_min, [b, b_max] | min] | max | round(0) | int }}
-          {% else %}
+          {% if day_sr is none %}
             {{ b_min | round(0) | int }}
+          {% else %}
+            {% set day_len_s = day_ss - day_sr %}
+            {% set ramp_s = [0, (day_len_s - plateau_target_s) / 2] | max %}
+            {% set up_start = day_sr - edge_s %}
+            {% set up_end = day_sr + ramp_s %}
+            {% set down_start = day_ss - ramp_s %}
+            {% set down_end = day_ss + edge_s %}
+            {% if t < up_start %}
+              {% set b = b_min %}
+            {% elif t <= up_end %}
+              {% set u = (t - up_start) / (up_end - up_start) %}
+              {% set u = [0, [u, 1] | min] | max %}
+              {% set z = (2 * u) - 1 %}
+              {% set az = 1.4 * z %}
+              {% set z2 = az * az %}
+              {% set tnh = (az * (27 + z2)) / (27 + (9 * z2)) %}
+              {% set s = (tnh + 1) / 2 %}
+              {% set b = b_min + (b_max - b_min) * s %}
+            {% elif t < down_start %}
+              {% set b = b_max %}
+            {% elif t <= down_end %}
+              {% set u = (t - down_start) / (down_end - down_start) %}
+              {% set u = [0, [u, 1] | min] | max %}
+              {% set z = (2 * u) - 1 %}
+              {% set az = 1.4 * z %}
+              {% set z2 = az * az %}
+              {% set tnh = (az * (27 + z2)) / (27 + (9 * z2)) %}
+              {% set s = (tnh + 1) / 2 %}
+              {% set b = b_max - (b_max - b_min) * s %}
+            {% else %}
+              {% set b = b_min %}
+            {% endif %}
+            {{ [b_min, [b, b_max] | min] | max | round(0) | int }}
           {% endif %}
         {% endif %}
       target_kelvin: >
