@@ -143,16 +143,18 @@ variables:
 
 trigger:
   - platform: time_pattern
-    minutes: "/1"
+    # Keep a 1-minute heartbeat, then filter with interval_min in conditions.
+    # Using "*" avoids frontend trigger-description issues seen with "/1" on some HA builds.
+    minutes: "*"
     id: tick
 
   # Re-apply immediately when adaptive auto mode is re-enabled.
-  - platform: template
-    value_template: >
-      {{ auto_mode_enabled
-         and auto_mode_input_entity not in ['', none]
-         and is_state(auto_mode_input_entity, 'on') }}
+  - platform: state
+    entity_id: !input auto_mode_boolean
+    from: "off"
+    to: "on"
     id: auto_mode_enabled
+    enabled: !input enable_auto_mode
 
   # Re-apply immediately after automation reload/save in HA UI.
   - platform: event
