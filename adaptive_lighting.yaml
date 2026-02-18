@@ -6,6 +6,7 @@ blueprint:
     currently on in a room.
     Manual control is handled with a dedicated input_boolean: when off, adaptive
     updates are paused; when on, updates resume.
+    Revision marker is exposed in traces as variable blueprint_revision.
   domain: automation
   homeassistant:
     min_version: 2024.6.0
@@ -124,6 +125,7 @@ blueprint:
 mode: restart
 
 variables:
+  blueprint_revision: "2026.02.18.1"
   room_lights: !input target_lights
   auto_mode_enabled: !input enable_auto_mode
   auto_mode_input_entity: !input auto_mode_boolean
