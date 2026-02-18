@@ -114,11 +114,12 @@ mode: restart
 
 variables:
   blueprint_revision: "2026.02.18.12"
-  room_lights: !input target_lights
   auto_mode_enabled: !input enable_auto_mode
   auto_mode_input_entity: !input auto_mode_boolean
   interval_min: !input update_interval_min
+  interval_min_int: "{{ interval_min | int(2) }}"
   fade_s: !input transition_sec
+  fade_s_int: "{{ fade_s | int(2) }}"
   b_night: !input brightness_night
   b_day: !input brightness_day
   k_night: !input kelvin_night
@@ -168,7 +169,7 @@ condition:
 
   - condition: template
     value_template: >
-      {{ trigger.id != 'tick' or (now().minute % (interval_min | int(2)) == 0) }}
+      {{ trigger.id != 'tick' or (now().minute % (interval_min_int | int(2)) == 0) }}
 
 action:
   - choose:
@@ -191,7 +192,7 @@ action:
         {% else %}
           {{ on_lights }}
         {% endif %}
-      applied_transition_s: "{{ fade_s | int(2) }}"
+      applied_transition_s: "{{ fade_s_int }}"
 
   - condition: template
     value_template: "{{ target_lights_to_update | count > 0 }}"
@@ -264,48 +265,48 @@ action:
         {% else %}
           0
         {% endif %}
+      adaptive_curve_factor: >
+        {% set p = sun_position | float(0) %}
+        {% if p > 0 %}
+          {% set s0 = p * p * p * ((p * ((6 * p) - 15)) + 10) %}
+          {{ s0 ** (brightness_curve_gamma | float(1.5)) }}
+        {% else %}
+          0
+        {% endif %}
       target_brightness: >
         {% set b_min = [b_night | float(1), b_day | float(100)] | min %}
         {% set b_max = [b_night | float(1), b_day | float(100)] | max %}
-        {% set p = sun_position | float(0) %}
-        {% if p > 0 %}
-          {% set s0 = p * p * p * ((p * ((6 * p) - 15)) + 10) %}
-          {% set s = s0 ** (brightness_curve_gamma | float(1.5)) %}
-          {{ (b_min + (b_max - b_min) * s) | round(0) | int }}
-        {% else %}
-          {{ b_min | round(0) | int }}
-        {% endif %}
+        {% set f = adaptive_curve_factor | float(0) %}
+        {{ (b_min + (b_max - b_min) * f) | round(0) | int }}
       target_kelvin: >
-        {% set p = sun_position | float(0) %}
         {% set k_min = [k_night | float(2200), k_day | float(5000)] | min %}
         {% set k_max = [k_night | float(2200), k_day | float(5000)] | max %}
-        {% if p > 0 %}
-          {% set s0 = p * p * p * ((p * ((6 * p) - 15)) + 10) %}
-          {% set s = s0 ** (brightness_curve_gamma | float(1.5)) %}
-          {{ (k_min + (k_max - k_min) * s) | round(0) | int }}
-        {% else %}
-          {{ k_min | round(0) | int }}
-        {% endif %}
+        {% set f = adaptive_curve_factor | float(0) %}
+        {{ (k_min + (k_max - k_min) * f) | round(0) | int }}
 
   - repeat:
       for_each: "{{ target_lights_to_update }}"
       sequence:
         - variables:
             modes: "{{ state_attr(repeat.item, 'supported_color_modes') or [] }}"
+            modes_count: "{{ modes | count }}"
             min_k: "{{ state_attr(repeat.item, 'min_color_temp_kelvin') | float(0) }}"
             max_k: "{{ state_attr(repeat.item, 'max_color_temp_kelvin') | float(0) }}"
             has_brightness_attr: "{{ state_attr(repeat.item, 'brightness') is not none }}"
+            has_ct_kelvin_attr: "{{ state_attr(repeat.item, 'color_temp_kelvin') is not none }}"
+            has_ct_attr: "{{ state_attr(repeat.item, 'color_temp') is not none }}"
+            onoff_only: "{{ (modes_count == 1) and (modes[0] == 'onoff') }}"
             supports_ct: >
               {{ 'color_temp' in modes
                  or (min_k > 0 and max_k > 0)
-                 or (state_attr(repeat.item, 'color_temp_kelvin') is not none)
-                 or (state_attr(repeat.item, 'color_temp') is not none) }}
+                 or has_ct_kelvin_attr
+                 or has_ct_attr }}
             # In Z2M/groups, supported_color_modes can be empty or partial.
             # Default to brightness-capable unless explicitly onoff-only.
             supports_brightness: >
               {{ has_brightness_attr
-                 or (modes | count == 0)
-                 or not ((modes | count == 1) and (modes[0] == 'onoff')) }}
+                 or (modes_count == 0)
+                 or not onoff_only }}
             clamped_kelvin: >
               {% if min_k > 0 and max_k > 0 %}
                 {{ [min_k, [target_kelvin | float(0), max_k] | min] | max | round(0) | int }}
