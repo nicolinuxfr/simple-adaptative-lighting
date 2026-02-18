@@ -90,18 +90,6 @@ blueprint:
               mode: slider
               unit_of_measurement: K
 
-        day_span_adjustment_min:
-          name: Day span adjustment (minutes)
-          description: "Extend the adaptive day beyond sun events (+) or shorten it (-). Example: -60 starts 60 min later and ends 60 min earlier."
-          default: 60
-          selector:
-            number:
-              min: -120
-              max: 120
-              step: 5
-              mode: slider
-              unit_of_measurement: min
-
     auto_mode_section:
       name: Optional auto mode input
       icon: mdi:toggle-switch
@@ -125,7 +113,7 @@ blueprint:
 mode: restart
 
 variables:
-  blueprint_revision: "2026.02.18.7"
+  blueprint_revision: "2026.02.18.9"
   room_lights: !input target_lights
   auto_mode_enabled: !input enable_auto_mode
   auto_mode_input_entity: !input auto_mode_boolean
@@ -135,7 +123,6 @@ variables:
   b_day: !input brightness_day
   k_night: !input kelvin_night
   k_day: !input kelvin_day
-  day_span_adjustment_min: !input day_span_adjustment_min
   light_entities: >
     {% if room_lights is string %}
       {{ [room_lights] }}
@@ -217,48 +204,41 @@ action:
       now_ts: "{{ as_timestamp(now()) }}"
       next_rising_ts: "{{ as_timestamp(state_attr('sun.sun', 'next_rising')) }}"
       next_setting_ts: "{{ as_timestamp(state_attr('sun.sun', 'next_setting')) }}"
-      day_offset_s: "{{ day_span_adjustment_min | float(0) * 60 }}"
-      adjusted_sunrise_ts: >
+      sunrise_ts: >
         {% if next_rising_ts and next_setting_ts %}
           {% set nr = next_rising_ts | float(0) %}
           {% set ns = next_setting_ts | float(0) %}
-          {% set o = day_offset_s | float(0) %}
-          {{ (nr - (86400 if nr > ns else 0)) - o }}
+          {{ nr - (86400 if nr > ns else 0) }}
         {% else %}
           {{ none }}
         {% endif %}
-      adjusted_sunset_ts: >
+      sunset_ts: >
         {% if next_rising_ts and next_setting_ts %}
-          {{ (next_setting_ts | float(0)) + (day_offset_s | float(0)) }}
+          {{ next_setting_ts | float(0) }}
         {% else %}
           {{ none }}
         {% endif %}
-      previous_adjusted_sunrise_ts: >
-        {% if adjusted_sunrise_ts is not none %}
-          {{ (adjusted_sunrise_ts | float(0)) - 86400 }}
+      previous_sunrise_ts: >
+        {% if sunrise_ts is not none %}
+          {{ (sunrise_ts | float(0)) - 86400 }}
         {% else %}
           {{ none }}
         {% endif %}
-      previous_adjusted_sunset_ts: >
-        {% if adjusted_sunset_ts is not none %}
-          {{ (adjusted_sunset_ts | float(0)) - 86400 }}
+      previous_sunset_ts: >
+        {% if sunset_ts is not none %}
+          {{ (sunset_ts | float(0)) - 86400 }}
         {% else %}
           {{ none }}
         {% endif %}
-      brightness_plateau_target_s: 21600
-      brightness_edge_s: 900
-      brightness_curve_gamma: 1.35
-      # Adaptive day span:
-      # +offset => sunrise earlier + sunset later (longer day)
-      # -offset => sunrise later + sunset earlier (shorter day)
-      # sun_position in [-1, 1]: 0 at adjusted sunrise/sunset, +1 at adjusted noon, -1 at adjusted midnight.
+      brightness_curve_gamma: 2.5
+      # sun_position in [-1, 1]: 0 at sunrise/sunset, +1 at noon, -1 at midnight.
       sun_position: >
-        {% if adjusted_sunrise_ts is not none and adjusted_sunset_ts is not none %}
+        {% if sunrise_ts is not none and sunset_ts is not none %}
           {% set t = now_ts | float(0) %}
-          {% set sr0 = adjusted_sunrise_ts | float(0) %}
-          {% set ss0 = adjusted_sunset_ts | float(0) %}
-          {% set sr_prev = previous_adjusted_sunrise_ts | float(0) %}
-          {% set ss_prev = previous_adjusted_sunset_ts | float(0) %}
+          {% set sr0 = sunrise_ts | float(0) %}
+          {% set ss0 = sunset_ts | float(0) %}
+          {% set sr_prev = previous_sunrise_ts | float(0) %}
+          {% set ss_prev = previous_sunset_ts | float(0) %}
           {% if t >= sr0 and t < ss0 %}
             {% set day_start = sr0 %}
             {% set day_end = ss0 %}
@@ -290,52 +270,13 @@ action:
       target_brightness: >
         {% set b_min = [b_night | float(1), b_day | float(100)] | min %}
         {% set b_max = [b_night | float(1), b_day | float(100)] | max %}
-        {% set t = now_ts | float(0) %}
-        {% set sr0 = adjusted_sunrise_ts | float(0) %}
-        {% set ss0 = adjusted_sunset_ts | float(0) %}
-        {% set sr_prev = previous_adjusted_sunrise_ts | float(0) %}
-        {% set ss_prev = previous_adjusted_sunset_ts | float(0) %}
-        {% set plateau_target_s = brightness_plateau_target_s | float(21600) %}
-        {% set edge_s = brightness_edge_s | float(900) %}
-        {% if t >= (sr0 - edge_s) and t < (ss0 + edge_s) %}
-          {% set day_sr = sr0 %}
-          {% set day_ss = ss0 %}
-        {% elif t >= (sr_prev - edge_s) and t < (ss_prev + edge_s) %}
-          {% set day_sr = sr_prev %}
-          {% set day_ss = ss_prev %}
+        {% set p = sun_position | float(0) %}
+        {% if p > 0 %}
+          {% set s0 = p * p * p * ((p * ((6 * p) - 15)) + 10) %}
+          {% set s = s0 ** (brightness_curve_gamma | float(2.5)) %}
+          {{ (b_min + (b_max - b_min) * s) | round(0) | int }}
         {% else %}
-          {% set day_sr = none %}
-          {% set day_ss = none %}
-        {% endif %}
-        {% if day_sr is none %}
           {{ b_min | round(0) | int }}
-        {% else %}
-          {% set day_len_s = day_ss - day_sr %}
-          {% set ramp_s = [0, (day_len_s - plateau_target_s) / 2] | max %}
-          {% set up_start = day_sr - edge_s %}
-          {% set up_end = day_sr + ramp_s %}
-          {% set down_start = day_ss - ramp_s %}
-          {% set down_end = day_ss + edge_s %}
-          {% if t < up_start %}
-            {% set b = b_min %}
-          {% elif t <= up_end %}
-            {% set u = (t - up_start) / (up_end - up_start) %}
-            {% set u = [0, [u, 1] | min] | max %}
-            {% set s0 = u * u * u * ((u * ((6 * u) - 15)) + 10) %}
-            {% set s = s0 ** (brightness_curve_gamma | float(1.35)) %}
-            {% set b = b_min + (b_max - b_min) * s %}
-          {% elif t < down_start %}
-            {% set b = b_max %}
-          {% elif t <= down_end %}
-            {% set u = (t - down_start) / (down_end - down_start) %}
-            {% set u = [0, [u, 1] | min] | max %}
-            {% set s0 = u * u * u * ((u * ((6 * u) - 15)) + 10) %}
-            {% set s = s0 ** (brightness_curve_gamma | float(1.35)) %}
-            {% set b = b_max - (b_max - b_min) * s %}
-          {% else %}
-            {% set b = b_min %}
-          {% endif %}
-          {{ [b_min, [b, b_max] | min] | max | round(0) | int }}
         {% endif %}
       target_kelvin: >
         {% set p = sun_position | float(0) %}
