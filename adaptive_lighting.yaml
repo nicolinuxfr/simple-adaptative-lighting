@@ -146,8 +146,16 @@ trigger:
     minutes: "/1"
     id: tick
 
+  # Re-apply immediately when adaptive auto mode is re-enabled.
+  - platform: template
+    value_template: >
+      {{ auto_mode_enabled
+         and auto_mode_input_entity not in ['', none]
+         and is_state(auto_mode_input_entity, 'on') }}
+    id: auto_mode_enabled
+
   # Re-apply immediately after automation reload/save in HA UI.
-  - trigger: event
+  - platform: event
     event_type: automation_reloaded
     id: automation_reloaded
 
@@ -196,31 +204,59 @@ action:
         {% else %}
           {{ on_lights }}
         {% endif %}
-      applied_transition_s: >
-        {{ fade_s | int(2) }}
+      applied_transition_s: "{{ fade_s | int(2) }}"
 
   - condition: template
     value_template: "{{ target_lights_to_update | count > 0 }}"
 
   - variables:
-      n_ts: "{{ as_timestamp(now()) }}"
-      nr_ts: "{{ as_timestamp(state_attr('sun.sun', 'next_rising')) }}"
-      ns_ts: "{{ as_timestamp(state_attr('sun.sun', 'next_setting')) }}"
-      day_span_s: "{{ day_span_adjustment_min | float(0) * 60 }}"
+      now_ts: "{{ as_timestamp(now()) }}"
+      next_rising_ts: "{{ as_timestamp(state_attr('sun.sun', 'next_rising')) }}"
+      next_setting_ts: "{{ as_timestamp(state_attr('sun.sun', 'next_setting')) }}"
+      day_offset_s: "{{ day_span_adjustment_min | float(0) * 60 }}"
+      adjusted_sunrise_ts: >
+        {% if next_rising_ts and next_setting_ts %}
+          {% set nr = next_rising_ts | float(0) %}
+          {% set ns = next_setting_ts | float(0) %}
+          {% set o = day_offset_s | float(0) %}
+          {{ (nr - (86400 if nr > ns else 0)) - o }}
+        {% else %}
+          {{ none }}
+        {% endif %}
+      adjusted_sunset_ts: >
+        {% if next_rising_ts and next_setting_ts %}
+          {{ (next_setting_ts | float(0)) + (day_offset_s | float(0)) }}
+        {% else %}
+          {{ none }}
+        {% endif %}
+      previous_adjusted_sunrise_ts: >
+        {% if adjusted_sunrise_ts is not none %}
+          {{ (adjusted_sunrise_ts | float(0)) - 86400 }}
+        {% else %}
+          {{ none }}
+        {% endif %}
+      previous_adjusted_sunset_ts: >
+        {% if adjusted_sunset_ts is not none %}
+          {{ (adjusted_sunset_ts | float(0)) - 86400 }}
+        {% else %}
+          {{ none }}
+        {% endif %}
+      brightness_plateau_target_s: 21600
+      brightness_edge_s: 900
+      smoothstep_gain: 1.4
+      smoothstep_num_offset: 27
+      smoothstep_den_multiplier: 9
       # Adaptive day span:
       # +offset => sunrise earlier + sunset later (longer day)
       # -offset => sunrise later + sunset earlier (shorter day)
       # sun_position in [-1, 1]: 0 at adjusted sunrise/sunset, +1 at adjusted noon, -1 at adjusted midnight.
       sun_position: >
-        {% if nr_ts and ns_ts %}
-          {% set t = n_ts | float(0) %}
-          {% set nr = nr_ts | float(0) %}
-          {% set ns = ns_ts | float(0) %}
-          {% set o = day_span_s | float(0) %}
-          {% set sr0 = (nr - (86400 if nr > ns else 0)) - o %}
-          {% set ss0 = ns + o %}
-          {% set sr_prev = sr0 - 86400 %}
-          {% set ss_prev = ss0 - 86400 %}
+        {% if adjusted_sunrise_ts is not none and adjusted_sunset_ts is not none %}
+          {% set t = now_ts | float(0) %}
+          {% set sr0 = adjusted_sunrise_ts | float(0) %}
+          {% set ss0 = adjusted_sunset_ts | float(0) %}
+          {% set sr_prev = previous_adjusted_sunrise_ts | float(0) %}
+          {% set ss_prev = previous_adjusted_sunset_ts | float(0) %}
           {% if t >= sr0 and t < ss0 %}
             {% set day_start = sr0 %}
             {% set day_end = ss0 %}
@@ -252,16 +288,16 @@ action:
       target_brightness: >
         {% set b_min = [b_night | float(1), b_day | float(100)] | min %}
         {% set b_max = [b_night | float(1), b_day | float(100)] | max %}
-        {% set o = day_span_s | float(0) %}
-        {% set t = n_ts | float(0) %}
-        {% set nr = nr_ts | float(0) %}
-        {% set ns = ns_ts | float(0) %}
-        {% set sr0 = (nr - (86400 if nr > ns else 0)) - o %}
-        {% set ss0 = ns + o %}
-        {% set sr_prev = sr0 - 86400 %}
-        {% set ss_prev = ss0 - 86400 %}
-        {% set plateau_target_s = 21600 %}
-        {% set edge_s = 900 %}
+        {% set t = now_ts | float(0) %}
+        {% set sr0 = adjusted_sunrise_ts | float(0) %}
+        {% set ss0 = adjusted_sunset_ts | float(0) %}
+        {% set sr_prev = previous_adjusted_sunrise_ts | float(0) %}
+        {% set ss_prev = previous_adjusted_sunset_ts | float(0) %}
+        {% set plateau_target_s = brightness_plateau_target_s | float(21600) %}
+        {% set edge_s = brightness_edge_s | float(900) %}
+        {% set gain = smoothstep_gain | float(1.4) %}
+        {% set num_offset = smoothstep_num_offset | float(27) %}
+        {% set den_multiplier = smoothstep_den_multiplier | float(9) %}
         {% if t >= sr0 and t < ss0 %}
           {% set day_sr = sr0 %}
           {% set day_ss = ss0 %}
@@ -287,9 +323,9 @@ action:
             {% set u = (t - up_start) / (up_end - up_start) %}
             {% set u = [0, [u, 1] | min] | max %}
             {% set z = (2 * u) - 1 %}
-            {% set az = 1.4 * z %}
+            {% set az = gain * z %}
             {% set z2 = az * az %}
-            {% set tnh = (az * (27 + z2)) / (27 + (9 * z2)) %}
+            {% set tnh = (az * (num_offset + z2)) / (num_offset + (den_multiplier * z2)) %}
             {% set s = (tnh + 1) / 2 %}
             {% set b = b_min + (b_max - b_min) * s %}
           {% elif t < down_start %}
@@ -298,9 +334,9 @@ action:
             {% set u = (t - down_start) / (down_end - down_start) %}
             {% set u = [0, [u, 1] | min] | max %}
             {% set z = (2 * u) - 1 %}
-            {% set az = 1.4 * z %}
+            {% set az = gain * z %}
             {% set z2 = az * az %}
-            {% set tnh = (az * (27 + z2)) / (27 + (9 * z2)) %}
+            {% set tnh = (az * (num_offset + z2)) / (num_offset + (den_multiplier * z2)) %}
             {% set s = (tnh + 1) / 2 %}
             {% set b = b_max - (b_max - b_min) * s %}
           {% else %}
@@ -343,41 +379,17 @@ action:
               {% else %}
                 {{ target_kelvin | int(0) }}
               {% endif %}
-        - choose:
-            - conditions:
-                - condition: template
-                  value_template: "{{ supports_brightness and supports_ct }}"
-              sequence:
-                - service: light.turn_on
-                  target:
-                    entity_id: "{{ repeat.item }}"
-                  data:
-                    brightness_pct: "{{ target_brightness }}"
-                    color_temp_kelvin: "{{ clamped_kelvin }}"
-                    transition: "{{ applied_transition_s | int(2) }}"
-            - conditions:
-                - condition: template
-                  value_template: "{{ supports_brightness and not supports_ct }}"
-              sequence:
-                - service: light.turn_on
-                  target:
-                    entity_id: "{{ repeat.item }}"
-                  data:
-                    brightness_pct: "{{ target_brightness }}"
-                    transition: "{{ applied_transition_s | int(2) }}"
-            - conditions:
-                - condition: template
-                  value_template: "{{ (not supports_brightness) and supports_ct }}"
-              sequence:
-                - service: light.turn_on
-                  target:
-                    entity_id: "{{ repeat.item }}"
-                  data:
-                    color_temp_kelvin: "{{ clamped_kelvin }}"
-                    transition: "{{ applied_transition_s | int(2) }}"
-          default:
-            - service: light.turn_on
-              target:
-                entity_id: "{{ repeat.item }}"
-              data:
-                transition: "{{ applied_transition_s | int(2) }}"
+        - variables:
+            turn_on_data_json: >
+              {% set data = {'transition': applied_transition_s | int(2)} %}
+              {% if supports_brightness %}
+                {% set _ = data.update({'brightness_pct': target_brightness}) %}
+              {% endif %}
+              {% if supports_ct %}
+                {% set _ = data.update({'color_temp_kelvin': clamped_kelvin}) %}
+              {% endif %}
+              {{ data | to_json }}
+        - service: light.turn_on
+          target:
+            entity_id: "{{ repeat.item }}"
+          data: "{{ turn_on_data_json | from_json }}"
