@@ -383,14 +383,16 @@ action:
               {% endif %}
         - variables:
             turn_on_data_json: >
-              {% set data = {'transition': applied_transition_s | int(2)} %}
-              {% if supports_brightness %}
-                {% set _ = data.update({'brightness_pct': target_brightness}) %}
+              {% set transition_value = applied_transition_s | int(2) %}
+              {% if supports_brightness and supports_ct %}
+                {{ {'transition': transition_value, 'brightness_pct': target_brightness, 'color_temp_kelvin': clamped_kelvin} | to_json }}
+              {% elif supports_brightness %}
+                {{ {'transition': transition_value, 'brightness_pct': target_brightness} | to_json }}
+              {% elif supports_ct %}
+                {{ {'transition': transition_value, 'color_temp_kelvin': clamped_kelvin} | to_json }}
+              {% else %}
+                {{ {'transition': transition_value} | to_json }}
               {% endif %}
-              {% if supports_ct %}
-                {% set _ = data.update({'color_temp_kelvin': clamped_kelvin}) %}
-              {% endif %}
-              {{ data | to_json }}
         - service: light.turn_on
           target:
             entity_id: "{{ repeat.item }}"
