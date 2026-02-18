@@ -125,7 +125,7 @@ blueprint:
 mode: restart
 
 variables:
-  blueprint_revision: "2026.02.18.1"
+  blueprint_revision: "2026.02.18.7"
   room_lights: !input target_lights
   auto_mode_enabled: !input enable_auto_mode
   auto_mode_input_entity: !input auto_mode_boolean
@@ -247,9 +247,7 @@ action:
         {% endif %}
       brightness_plateau_target_s: 21600
       brightness_edge_s: 900
-      smoothstep_gain: 1.4
-      smoothstep_num_offset: 27
-      smoothstep_den_multiplier: 9
+      brightness_curve_gamma: 1.35
       # Adaptive day span:
       # +offset => sunrise earlier + sunset later (longer day)
       # -offset => sunrise later + sunset earlier (shorter day)
@@ -299,13 +297,10 @@ action:
         {% set ss_prev = previous_adjusted_sunset_ts | float(0) %}
         {% set plateau_target_s = brightness_plateau_target_s | float(21600) %}
         {% set edge_s = brightness_edge_s | float(900) %}
-        {% set gain = smoothstep_gain | float(1.4) %}
-        {% set num_offset = smoothstep_num_offset | float(27) %}
-        {% set den_multiplier = smoothstep_den_multiplier | float(9) %}
-        {% if t >= sr0 and t < ss0 %}
+        {% if t >= (sr0 - edge_s) and t < (ss0 + edge_s) %}
           {% set day_sr = sr0 %}
           {% set day_ss = ss0 %}
-        {% elif t >= sr_prev and t < ss_prev %}
+        {% elif t >= (sr_prev - edge_s) and t < (ss_prev + edge_s) %}
           {% set day_sr = sr_prev %}
           {% set day_ss = ss_prev %}
         {% else %}
@@ -326,22 +321,16 @@ action:
           {% elif t <= up_end %}
             {% set u = (t - up_start) / (up_end - up_start) %}
             {% set u = [0, [u, 1] | min] | max %}
-            {% set z = (2 * u) - 1 %}
-            {% set az = gain * z %}
-            {% set z2 = az * az %}
-            {% set tnh = (az * (num_offset + z2)) / (num_offset + (den_multiplier * z2)) %}
-            {% set s = (tnh + 1) / 2 %}
+            {% set s0 = u * u * u * ((u * ((6 * u) - 15)) + 10) %}
+            {% set s = s0 ** (brightness_curve_gamma | float(1.35)) %}
             {% set b = b_min + (b_max - b_min) * s %}
           {% elif t < down_start %}
             {% set b = b_max %}
           {% elif t <= down_end %}
             {% set u = (t - down_start) / (down_end - down_start) %}
             {% set u = [0, [u, 1] | min] | max %}
-            {% set z = (2 * u) - 1 %}
-            {% set az = gain * z %}
-            {% set z2 = az * az %}
-            {% set tnh = (az * (num_offset + z2)) / (num_offset + (den_multiplier * z2)) %}
-            {% set s = (tnh + 1) / 2 %}
+            {% set s0 = u * u * u * ((u * ((6 * u) - 15)) + 10) %}
+            {% set s = s0 ** (brightness_curve_gamma | float(1.35)) %}
             {% set b = b_max - (b_max - b_min) * s %}
           {% else %}
             {% set b = b_min %}
