@@ -123,12 +123,7 @@ variables:
   b_day: !input brightness_day
   k_night: !input kelvin_night
   k_day: !input kelvin_day
-  light_entities: >
-    {% if room_lights is string %}
-      {{ [room_lights] }}
-    {% else %}
-      {{ room_lights | list }}
-    {% endif %}
+  light_entities: !input target_lights
 
 trigger:
   - platform: time_pattern
@@ -137,13 +132,14 @@ trigger:
     minutes: "*"
     id: tick
 
-  # Re-apply immediately when adaptive auto mode is re-enabled.
-  - platform: state
-    entity_id: !input auto_mode_boolean
-    from: "off"
-    to: "on"
+  # Re-apply immediately when adaptive auto mode becomes active.
+  # Template trigger avoids invalid empty entity_id when optional input is disabled.
+  - platform: template
+    value_template: >
+      {{ auto_mode_enabled
+         and auto_mode_input_entity not in ['', none]
+         and is_state(auto_mode_input_entity, 'on') }}
     id: auto_mode_enabled
-    enabled: !input enable_auto_mode
 
   # Re-apply immediately after automation reload/save in HA UI.
   - platform: event
