@@ -113,7 +113,7 @@ blueprint:
 mode: restart
 
 variables:
-  blueprint_revision: "2026.02.18.9"
+  blueprint_revision: "2026.02.18.10"
   room_lights: !input target_lights
   auto_mode_enabled: !input enable_auto_mode
   auto_mode_input_entity: !input auto_mode_boolean
@@ -283,7 +283,9 @@ action:
         {% set k_min = [k_night | float(2200), k_day | float(5000)] | min %}
         {% set k_max = [k_night | float(2200), k_day | float(5000)] | max %}
         {% if p > 0 %}
-          {{ ((k_max - k_min) * p + k_min) | round(0) | int }}
+          {% set s0 = p * p * p * ((p * ((6 * p) - 15)) + 10) %}
+          {% set s = s0 ** (brightness_curve_gamma | float(2.5)) %}
+          {{ (k_min + (k_max - k_min) * s) | round(0) | int }}
         {% else %}
           {{ k_min | round(0) | int }}
         {% endif %}
