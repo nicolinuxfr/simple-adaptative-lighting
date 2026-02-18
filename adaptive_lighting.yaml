@@ -113,7 +113,7 @@ blueprint:
 mode: restart
 
 variables:
-  blueprint_revision: "2026.02.18.11"
+  blueprint_revision: "2026.02.18.12"
   room_lights: !input target_lights
   auto_mode_enabled: !input enable_auto_mode
   auto_mode_input_entity: !input auto_mode_boolean
@@ -204,17 +204,18 @@ action:
       now_ts: "{{ as_timestamp(now()) }}"
       next_rising_ts: "{{ as_timestamp(state_attr('sun.sun', 'next_rising')) }}"
       next_setting_ts: "{{ as_timestamp(state_attr('sun.sun', 'next_setting')) }}"
+      day_offset_s: 1800
       sunrise_ts: >
         {% if next_rising_ts and next_setting_ts %}
           {% set nr = next_rising_ts | float(0) %}
           {% set ns = next_setting_ts | float(0) %}
-          {{ nr - (86400 if nr > ns else 0) }}
+          {{ (nr - (86400 if nr > ns else 0)) - (day_offset_s | float(1800)) }}
         {% else %}
           {{ none }}
         {% endif %}
       sunset_ts: >
         {% if next_rising_ts and next_setting_ts %}
-          {{ next_setting_ts | float(0) }}
+          {{ (next_setting_ts | float(0)) + (day_offset_s | float(1800)) }}
         {% else %}
           {{ none }}
         {% endif %}
@@ -231,7 +232,7 @@ action:
           {{ none }}
         {% endif %}
       brightness_curve_gamma: 1.5
-      # sun_position in [-1, 1]: 0 at sunrise/sunset, +1 at noon, -1 at midnight.
+      # sun_position in [-1, 1]: 0 at adjusted sunrise/sunset, +1 at noon, -1 at midnight.
       sun_position: >
         {% if sunrise_ts is not none and sunset_ts is not none %}
           {% set t = now_ts | float(0) %}
