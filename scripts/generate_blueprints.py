@@ -14,13 +14,13 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Render localized blueprint YAML files from a template and i18n dictionaries."
     )
-    parser.add_argument("--template", default="blueprints/template.yaml", help="Path to template YAML.")
-    parser.add_argument("--i18n-dir", default="i18n", help="Directory with <lang>.json files.")
+    parser.add_argument("--template", default="template.yaml", help="Path to template YAML.")
+    parser.add_argument("--i18n-dir", default="languages", help="Directory with <lang>.json files.")
     parser.add_argument("--output-dir", default="dist", help="Output directory for generated files.")
     parser.add_argument(
         "--default-lang",
         default="en",
-        help="Fallback language code. Must exist in i18n directory.",
+        help="Fallback language code. Must exist in languages directory.",
     )
     parser.add_argument(
         "--filename",

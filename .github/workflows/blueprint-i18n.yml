@@ -21,16 +21,8 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Generate localized blueprints
-        run: python scripts/generate_blueprints.py --write-root-default
-
-      - name: Ensure generated files are committed
-        run: |
-          git diff --quiet -- adaptive_lighting.yaml || {
-            echo "adaptive_lighting.yaml is out of date. Run: python scripts/generate_blueprints.py --write-root-default"
-            git --no-pager diff -- adaptive_lighting.yaml
-            exit 1
-          }
+      - name: Validate template and dictionaries
+        run: python scripts/generate_blueprints.py
 
   publish-gh-pages:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -54,3 +46,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
           force_orphan: true
+          exclude_assets: .DS_Store

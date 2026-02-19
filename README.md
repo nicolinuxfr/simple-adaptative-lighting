@@ -4,26 +4,25 @@ Ce depot genere automatiquement un blueprint Home Assistant en plusieurs langues
 
 ## Structure
 
-- `blueprints/template.yaml` : blueprint source avec placeholders `[[...]]`
-- `i18n/en.json` : dictionnaire de reference (obligatoire, complet)
-- `i18n/<lang>.json` : traductions par langue (fallback auto vers `en`)
+- `template.yaml` : blueprint source avec placeholders `[[...]]`
+- `languages/en.json` : dictionnaire de reference (obligatoire, complet)
+- `languages/<lang>.json` : traductions par langue (fallback auto vers `en`)
 - `scripts/generate_blueprints.py` : generation + validation
 - `dist/<lang>/adaptive_lighting.yaml` : blueprints generes
 
 ## Regles de validation
 
-- Toutes les cles du template doivent exister dans `i18n/en.json`.
+- Toutes les cles du template doivent exister dans `languages/en.json`.
 - Les autres langues peuvent omettre des cles: fallback automatique vers `en`.
 - Les cles inconnues dans un dictionnaire provoquent un echec (anti-typo).
 
 ## Generation locale
 
 ```bash
-python3 scripts/generate_blueprints.py --write-root-default
+python3 scripts/generate_blueprints.py
 ```
 
 - Genere `dist/en/adaptive_lighting.yaml`, `dist/fr/adaptive_lighting.yaml`, etc.
-- Met aussi a jour `adaptive_lighting.yaml` (version anglaise par defaut).
 
 ## CI/CD GitHub Actions
 
@@ -45,6 +44,6 @@ Ces URLs restent stables tant que tu conserves la branche `gh-pages` et les chem
 
 ## Ajouter une langue
 
-1. Creer `i18n/<lang>.json`
+1. Creer `languages/<lang>.json`
 2. Ajouter uniquement les cles traduites (ou toutes les cles si tu preferes)
 3. Laisser la CI valider et publier
