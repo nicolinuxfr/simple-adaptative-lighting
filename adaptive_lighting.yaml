@@ -201,7 +201,7 @@ action:
       now_ts: "{{ as_timestamp(now()) }}"
       next_rising_ts: "{{ as_timestamp(state_attr('sun.sun', 'next_rising')) }}"
       next_setting_ts: "{{ as_timestamp(state_attr('sun.sun', 'next_setting')) }}"
-      day_offset_s: 1800
+      day_offset_s: 2700
       sunrise_ts: >
         {% if next_rising_ts and next_setting_ts %}
           {% set nr = next_rising_ts | float(0) %}
