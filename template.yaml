@@ -1,7 +1,8 @@
 blueprint:
   name: [[blueprint.name]]
-  description: >
+  description: |-
     [[blueprint.description]]
+
     [[blueprint.version.line]]
   domain: automation
   homeassistant:
