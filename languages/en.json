@@ -1,6 +1,7 @@
 {
   "blueprint.name": "Simple Adaptive Room Lighting",
   "blueprint.description": "Lightweight adaptive lighting blueprint.\nIt updates brightness and white temperature from sun elevation, for the lights\ncurrently on in a room.\nManual control is handled with a dedicated input_boolean: when off, adaptive\nupdates are paused; when on, updates resume.\nRevision marker is exposed in traces as variable blueprint_revision.",
+  "blueprint.version.line": "Version: {version}",
   "input.target_lights.name": "Target lights",
   "input.target_lights.description": "Lights controlled by this automation instance.",
   "input.adaptive_settings.name": "Adaptive settings",

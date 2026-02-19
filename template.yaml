@@ -2,6 +2,7 @@ blueprint:
   name: [[blueprint.name]]
   description: >
     [[blueprint.description]]
+    [[blueprint.version.line]]
   domain: automation
   homeassistant:
     min_version: 2024.6.0
@@ -108,7 +109,7 @@ blueprint:
 mode: restart
 
 variables:
-  blueprint_revision: "2026.02.19.2"
+  blueprint_revision: "[[blueprint.version]]"
   auto_mode_enabled: !input enable_auto_mode
   auto_mode_input_entity: !input auto_mode_boolean
   interval_min: !input update_interval_min

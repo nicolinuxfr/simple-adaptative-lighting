@@ -1,6 +1,7 @@
 {
   "blueprint.name": "Eclairage adaptatif simple par piece",
   "blueprint.description": "Blueprint d'eclairage adaptatif leger.\nIl ajuste la luminosite et la temperature de blanc selon l'elevation du soleil,\npour les lumieres actuellement allumees dans une piece.\nLe controle manuel est gere via un input_boolean dedie: lorsqu'il est a off,\nles mises a jour adaptatives sont en pause; lorsqu'il est a on, elles reprennent.\nLe marqueur de revision est expose dans les traces via la variable blueprint_revision.",
+  "blueprint.version.line": "Version : {version}",
   "input.target_lights.name": "Lumieres cibles",
   "input.target_lights.description": "Lumieres pilotees par cette instance d'automatisation.",
   "input.adaptive_settings.name": "Parametres adaptatifs",

@@ -1,10 +1,11 @@
-# Simple Adaptive Lighting Blueprint (i18n)
+# Home Assistant Blueprint : Simple Adaptive Lighting
 
 Ce depot genere automatiquement un blueprint Home Assistant en plusieurs langues a partir d'un template unique.
 
 ## Structure
 
 - `template.yaml` : blueprint source avec placeholders `[[...]]`
+- `VERSION` : version unique du blueprint (injectee dans la description et `blueprint_revision`)
 - `languages/en.json` : dictionnaire de reference (obligatoire, complet)
 - `languages/<lang>.json` : traductions par langue (fallback auto vers `en`)
 - `scripts/generate_blueprints.py` : generation + validation
@@ -23,6 +24,9 @@ python3 scripts/generate_blueprints.py
 ```
 
 - Genere `dist/en/adaptive_lighting.yaml`, `dist/fr/adaptive_lighting.yaml`, etc.
+- Injecte automatiquement `[[blueprint.version]]` depuis `VERSION`.
+- La ligne de version est traduite via `blueprint.version.line` dans chaque `languages/<lang>.json`
+  avec le placeholder `{version}` (ex: `Version : {version}`).
 
 ## CI/CD GitHub Actions
 
