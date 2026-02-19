@@ -1,53 +1,55 @@
-# Home Assistant Blueprint : Simple Adaptive Lighting
+# Home Assistant Blueprint: Simple Adaptive Lighting
 
-Ce depot genere automatiquement un blueprint Home Assistant en plusieurs langues a partir d'un template unique.
+French version: [`README.fr.md`](README.fr.md)
+
+This repository automatically generates a Home Assistant blueprint in multiple languages from a single template.
 
 ## Structure
 
-- `template.yaml` : blueprint source avec placeholders `[[...]]`
-- `VERSION` : version unique du blueprint (injectee dans la description et `blueprint_revision`)
-- `languages/en.json` : dictionnaire de reference (obligatoire, complet)
-- `languages/<lang>.json` : traductions par langue (fallback auto vers `en`)
-- `scripts/generate_blueprints.py` : generation + validation
-- `dist/<lang>/adaptive_lighting.yaml` : blueprints generes
+- `template.yaml`: source blueprint with `[[...]]` placeholders
+- `VERSION`: single blueprint version (injected into the description and `blueprint_revision`)
+- `languages/en.json`: reference dictionary (required, complete)
+- `languages/<lang>.json`: per-language translations (automatic fallback to `en`)
+- `scripts/generate_blueprints.py`: generation + validation
+- `dist/<lang>/adaptive_lighting.yaml`: generated blueprints
 
-## Regles de validation
+## Validation rules
 
-- Toutes les cles du template doivent exister dans `languages/en.json`.
-- Les autres langues peuvent omettre des cles: fallback automatique vers `en`.
-- Les cles inconnues dans un dictionnaire provoquent un echec (anti-typo).
+- All template keys must exist in `languages/en.json`.
+- Other languages can omit keys (fallback to `en`).
+- Unknown keys in any dictionary fail the build (typo guard).
 
-## Generation locale
+## Local generation
 
 ```bash
 python3 scripts/generate_blueprints.py
 ```
 
-- Genere `dist/en/adaptive_lighting.yaml`, `dist/fr/adaptive_lighting.yaml`, etc.
-- Injecte automatiquement `[[blueprint.version]]` depuis `VERSION`.
-- La ligne de version est traduite via `blueprint.version.line` dans chaque `languages/<lang>.json`
-  avec le placeholder `{version}` (ex: `Version : {version}`).
+- Generates `dist/en/adaptive_lighting.yaml`, `dist/fr/adaptive_lighting.yaml`, etc.
+- Injects `[[blueprint.version]]` from `VERSION`.
+- The version line is translated through `blueprint.version.line` in each `languages/<lang>.json`,
+  with a `{version}` placeholder (example: `Version: {version}`).
 
-## CI/CD GitHub Actions
+## GitHub Actions CI/CD
 
 Workflow: `.github/workflows/blueprint-i18n.yml`
 
-- Sur PR/push: valide les dictionnaires + template et verifie que `adaptive_lighting.yaml` est a jour.
-- Sur push `main`: regenere puis publie `dist/` sur la branche `gh-pages`.
+- On pull requests and pushes: validates template + dictionaries.
+- On push to `main`: regenerates and publishes `dist/` to `gh-pages`.
 
-## URLs publiques stables pour Home Assistant
+## Stable public URLs for Home Assistant
 
-Utilise les URLs `raw` de la branche `gh-pages`:
+Use `raw` URLs from the `gh-pages` branch:
 
-- Anglais:
+- English:
   - `https://raw.githubusercontent.com/<owner>/<repo>/gh-pages/en/adaptive_lighting.yaml`
-- Francais:
+- French:
   - `https://raw.githubusercontent.com/<owner>/<repo>/gh-pages/fr/adaptive_lighting.yaml`
 
-Ces URLs restent stables tant que tu conserves la branche `gh-pages` et les chemins.
+These URLs stay stable as long as you keep the `gh-pages` branch and paths.
 
-## Ajouter une langue
+## Add a new language
 
-1. Creer `languages/<lang>.json`
-2. Ajouter uniquement les cles traduites (ou toutes les cles si tu preferes)
-3. Laisser la CI valider et publier
+1. Create `languages/<lang>.json`
+2. Add translated keys (partial is allowed)
+3. Let CI validate and publish
