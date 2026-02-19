@@ -1,0 +1,19 @@
+{
+  "blueprint.name": "Simple Adaptive Room Lighting",
+  "blueprint.description": "Lightweight adaptive lighting blueprint.\nIt updates brightness and white temperature from sun elevation, for the lights\ncurrently on in a room.\nManual control is handled with a dedicated input_boolean: when off, adaptive\nupdates are paused; when on, updates resume.\nRevision marker is exposed in traces as variable blueprint_revision.",
+  "input.target_lights.name": "Target lights",
+  "input.target_lights.description": "Lights controlled by this automation instance.",
+  "input.adaptive_settings.name": "Adaptive settings",
+  "input.update_interval_min.name": "Update interval (minutes)",
+  "input.update_interval_min.description": "Re-apply adaptive values every N minutes.",
+  "input.transition_sec.name": "Transition duration (seconds)",
+  "input.brightness_night.name": "Brightness at night (%)",
+  "input.brightness_day.name": "Brightness at day peak (%)",
+  "input.kelvin_night.name": "Kelvin at night",
+  "input.kelvin_day.name": "Kelvin at day peak",
+  "input.auto_mode_section.name": "Optional auto mode input",
+  "input.enable_auto_mode.name": "Enable auto mode input_boolean",
+  "input.enable_auto_mode.description": "Tick to enable manual pause/resume via an input_boolean.",
+  "input.auto_mode_boolean.name": "Adaptive auto mode entity",
+  "input.auto_mode_boolean.description": "input_boolean controlling adaptive mode (on = adaptive active, off = manual mode)."
+}

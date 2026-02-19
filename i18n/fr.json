@@ -1,0 +1,19 @@
+{
+  "blueprint.name": "Eclairage adaptatif simple par piece",
+  "blueprint.description": "Blueprint d'eclairage adaptatif leger.\nIl ajuste la luminosite et la temperature de blanc selon l'elevation du soleil,\npour les lumieres actuellement allumees dans une piece.\nLe controle manuel est gere via un input_boolean dedie: lorsqu'il est a off,\nles mises a jour adaptatives sont en pause; lorsqu'il est a on, elles reprennent.\nLe marqueur de revision est expose dans les traces via la variable blueprint_revision.",
+  "input.target_lights.name": "Lumieres cibles",
+  "input.target_lights.description": "Lumieres pilotees par cette instance d'automatisation.",
+  "input.adaptive_settings.name": "Parametres adaptatifs",
+  "input.update_interval_min.name": "Intervalle de mise a jour (minutes)",
+  "input.update_interval_min.description": "Reapplique les valeurs adaptatives toutes les N minutes.",
+  "input.transition_sec.name": "Duree de transition (secondes)",
+  "input.brightness_night.name": "Luminosite de nuit (%)",
+  "input.brightness_day.name": "Luminosite au pic de journee (%)",
+  "input.kelvin_night.name": "Kelvin de nuit",
+  "input.kelvin_day.name": "Kelvin au pic de journee",
+  "input.auto_mode_section.name": "Entree optionnelle pour le mode auto",
+  "input.enable_auto_mode.name": "Activer l'input_boolean du mode auto",
+  "input.enable_auto_mode.description": "Coche pour activer la pause/reprise manuelle via un input_boolean.",
+  "input.auto_mode_boolean.name": "Entite du mode auto adaptatif",
+  "input.auto_mode_boolean.description": "input_boolean qui pilote le mode adaptatif (on = adaptatif actif, off = mode manuel)."
+}

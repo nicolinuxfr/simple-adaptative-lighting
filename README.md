@@ -1,21 +1,50 @@
-# Simple Adaptive Lighting
+# Simple Adaptive Lighting Blueprint (i18n)
 
-Custom integration Home Assistant (HACS) pour exposer un controleur d'eclairage adaptatif avec:
+Ce depot genere automatiquement un blueprint Home Assistant en plusieurs langues a partir d'un template unique.
 
-- un `switch` principal (activation/desactivation),
-- un `sensor` de statut avec attributs (`brightness_pct`, `color_temp_kelvin`, `mode`, etc.),
-- une configuration par entree (ex: une entree par piece).
+## Structure
 
-## Installation avec HACS
+- `blueprints/template.yaml` : blueprint source avec placeholders `[[...]]`
+- `i18n/en.json` : dictionnaire de reference (obligatoire, complet)
+- `i18n/<lang>.json` : traductions par langue (fallback auto vers `en`)
+- `scripts/generate_blueprints.py` : generation + validation
+- `dist/<lang>/adaptive_lighting.yaml` : blueprints generes
 
-1. Ajouter le depot comme *Custom repository* (type: `Integration`):
-   - `nicolinuxfr/simple-adaptative-lightning`
-2. Installer l'integration depuis HACS.
-3. Redemarrer Home Assistant.
-4. Ajouter l'integration via **Settings > Devices & Services**.
+## Regles de validation
 
-## Structure attendue HACS
+- Toutes les cles du template doivent exister dans `i18n/en.json`.
+- Les autres langues peuvent omettre des cles: fallback automatique vers `en`.
+- Les cles inconnues dans un dictionnaire provoquent un echec (anti-typo).
 
-- `hacs.json`
-- `custom_components/simple_adaptive_lighting/manifest.json`
-- `custom_components/simple_adaptive_lighting/*`
+## Generation locale
+
+```bash
+python3 scripts/generate_blueprints.py --write-root-default
+```
+
+- Genere `dist/en/adaptive_lighting.yaml`, `dist/fr/adaptive_lighting.yaml`, etc.
+- Met aussi a jour `adaptive_lighting.yaml` (version anglaise par defaut).
+
+## CI/CD GitHub Actions
+
+Workflow: `.github/workflows/blueprint-i18n.yml`
+
+- Sur PR/push: valide les dictionnaires + template et verifie que `adaptive_lighting.yaml` est a jour.
+- Sur push `main`: regenere puis publie `dist/` sur la branche `gh-pages`.
+
+## URLs publiques stables pour Home Assistant
+
+Utilise les URLs `raw` de la branche `gh-pages`:
+
+- Anglais:
+  - `https://raw.githubusercontent.com/<owner>/<repo>/gh-pages/en/adaptive_lighting.yaml`
+- Francais:
+  - `https://raw.githubusercontent.com/<owner>/<repo>/gh-pages/fr/adaptive_lighting.yaml`
+
+Ces URLs restent stables tant que tu conserves la branche `gh-pages` et les chemins.
+
+## Ajouter une langue
+
+1. Creer `i18n/<lang>.json`
+2. Ajouter uniquement les cles traduites (ou toutes les cles si tu preferes)
+3. Laisser la CI valider et publier
