@@ -2,9 +2,17 @@ name: Blueprint i18n
 
 on:
   pull_request:
+    paths:
+      - template.yaml
+      - languages/**/*.json
+      - scripts/generate_blueprints.py
   push:
     branches:
       - main
+    paths:
+      - template.yaml
+      - languages/**/*.json
+      - scripts/generate_blueprints.py
 
 permissions:
   contents: write
