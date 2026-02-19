@@ -113,7 +113,7 @@ blueprint:
 mode: restart
 
 variables:
-  blueprint_revision: "2026.02.18.12"
+  blueprint_revision: "2026.02.19.2"
   auto_mode_enabled: !input enable_auto_mode
   auto_mode_input_entity: !input auto_mode_boolean
   interval_min: !input update_interval_min
@@ -134,12 +134,11 @@ trigger:
     id: tick
 
   # Re-apply immediately when adaptive auto mode becomes active.
-  # Template trigger avoids invalid empty entity_id when optional input is disabled.
-  - platform: template
-    value_template: >
-      {{ auto_mode_enabled
-         and auto_mode_input_entity not in ['', none]
-         and is_state(auto_mode_input_entity, 'on') }}
+  # Use state_changed event + filter to support off/unknown/unavailable -> on transitions.
+  - platform: event
+    event_type: state_changed
+    event_data:
+      entity_id: !input auto_mode_boolean
     id: auto_mode_enabled
 
   # Re-apply immediately after automation reload/save in HA UI.
@@ -161,6 +160,22 @@ trigger:
     id: sun_event
 
 condition:
+  - condition: template
+    value_template: >
+      {{ trigger.id != 'auto_mode_enabled'
+         or (
+           auto_mode_enabled
+           and auto_mode_input_entity not in ['', none]
+           and trigger.event is defined
+           and trigger.event.data is defined
+           and trigger.event.data.new_state is not none
+           and trigger.event.data.new_state.state == 'on'
+           and (
+             trigger.event.data.old_state is none
+             or trigger.event.data.old_state.state != 'on'
+           )
+         ) }}
+
   - condition: template
     value_template: >
       {{ not auto_mode_enabled
