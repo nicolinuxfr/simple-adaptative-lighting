@@ -102,9 +102,7 @@ variables:
 
 trigger:
   - platform: time_pattern
-    # Keep a 1-minute heartbeat, then filter with interval_min in conditions.
-    # Using "*" avoids frontend trigger-description issues seen with "/1" on some HA builds.
-    minutes: "*"
+    minutes: "/5"
     id: tick
 
   # Re-apply immediately when adaptive auto mode becomes active.
@@ -155,10 +153,6 @@ condition:
       {{ not auto_mode_enabled
          or auto_mode_input_entity in ['', none]
          or is_state(auto_mode_input_entity, 'on') }}
-
-  - condition: template
-    value_template: >
-      {{ trigger.id != 'tick' or (now().minute % 5 == 0) }}
 
 action:
   - choose:
