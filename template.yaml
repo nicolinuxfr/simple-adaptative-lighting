@@ -124,16 +124,13 @@ trigger:
       entity_id: !input auto_mode_boolean
     id: auto_mode_enabled
 
-  # Re-apply when this automation becomes active again
-  # (manual enable, reload, or restore after restart).
-  - platform: state
-    entity_id: this.entity_id
-    from:
-      - "off"
-      - "unknown"
-      - "unavailable"
-    to: "on"
-    id: automation_enabled
+  # Re-apply immediately when automations are reloaded from HA UI/service.
+  - platform: event
+    event_type: call_service
+    event_data:
+      domain: automation
+      service: reload
+    id: automations_reload_service
 
   - platform: state
     entity_id: !input target_lights
