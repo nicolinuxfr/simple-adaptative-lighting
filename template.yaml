@@ -124,12 +124,14 @@ trigger:
       entity_id: !input auto_mode_boolean
     id: auto_mode_enabled
 
-  # Re-apply immediately after automation reload/save in HA UI.
-  # Keep explicit event_data to avoid frontend trace description errors.
+  # Re-apply immediately when automations are reloaded from HA UI/service.
+  # Use call_service event to avoid frontend trace-description bug on automation_reloaded.
   - platform: event
-    event_type: automation_reloaded
-    event_data: {}
-    id: automation_reloaded
+    event_type: call_service
+    event_data:
+      domain: automation
+      service: reload
+    id: automations_reload_service
 
   - platform: state
     entity_id: !input target_lights
