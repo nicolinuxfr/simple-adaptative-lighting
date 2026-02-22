@@ -2,7 +2,12 @@
 
 English version: [`README.md`](README.md)
 
-Ce depot genere automatiquement un blueprint Home Assistant en plusieurs langues a partir d'un template unique.
+
+## Utiliser le blueprint
+
+Vous pouvez utiliser ce blueprint sur votre instance Home Assistant en utilisant ce lien direct :
+
+[![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2Fnicolinuxfr%2Fsimple-adaptative-lighting%2Fgh-pages%2Fen%2Fadaptive_lighting.yaml)
 
 ## Structure
 
