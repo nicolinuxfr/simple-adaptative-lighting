@@ -9,6 +9,8 @@ Vous pouvez utiliser ce blueprint sur votre instance Home Assistant en utilisant
 
 [![Open your Home Assistant instance and show the blueprint import dialog with a specific blueprint pre-filled.](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fraw.githubusercontent.com%2Fnicolinuxfr%2Fsimple-adaptative-lightning%2Fgh-pages%2Ffr%2Fadaptive_lighting.yaml)
 
+Lien à coller dans HA : https://raw.githubusercontent.com/nicolinuxfr/simple-adaptative-lighting/gh-pages/fr/adaptive_lighting.yaml
+
 ## Structure
 
 - `template.yaml` : blueprint source avec placeholders `[[...]]`
