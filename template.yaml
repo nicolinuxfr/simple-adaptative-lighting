@@ -86,7 +86,9 @@ blueprint:
           default: ""
           selector:
             entity:
-              domain: input_boolean
+              filter:
+                - domain: input_boolean
+                - domain: binary_sensor
 
 mode: restart
 

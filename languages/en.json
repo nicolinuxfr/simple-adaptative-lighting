@@ -15,7 +15,7 @@
   "input.kelvin_day.description": "White temperature in the middle of the day (in Kelvin).",
   "input.auto_mode_section.name": "Optional automation control",
   "input.enable_auto_mode.name": "Manual control",
-  "input.enable_auto_mode.description": "By checking this box, an input_boolean entity can be used to block automatic light changes.",
+  "input.enable_auto_mode.description": "By checking this box, an input_boolean or binary_sensor entity can be used to block automatic light changes.",
   "input.auto_mode_boolean.name": "Control entity",
-  "input.auto_mode_boolean.description": "Select an input_boolean entity to control the automation. When it is inactive, lights will no longer adapt throughout the day."
+  "input.auto_mode_boolean.description": "Select an input_boolean or binary_sensor entity to control the automation. When it is inactive, lights will no longer adapt throughout the day."
 }

@@ -15,7 +15,7 @@
   "input.kelvin_day.description": "Température du blanc au milieu de la journée (en Kelvin).",
   "input.auto_mode_section.name": "Contrôle optionnel de l'automatisation",
   "input.enable_auto_mode.name": "Contrôle manuel",
-  "input.enable_auto_mode.description": "En cochant cette case, une entité de type entrée logique permettra de bloquer les variations automatiques des éclairages.",
+  "input.enable_auto_mode.description": "En cochant cette case, une entité de type input_boolean ou binary_sensor permettra de bloquer les variations automatiques des éclairages.",
   "input.auto_mode_boolean.name": "Entité de contrôle",
-  "input.auto_mode_boolean.description": "Sélectionner une entité de type entrée logique qui contrôlera l'automatisation. Quand elle est inactive, les éclairages ne seront plus adaptés tout au long de la journée."
+  "input.auto_mode_boolean.description": "Sélectionner une entité de type input_boolean ou binary_sensor qui contrôlera l'automatisation. Quand elle est inactive, les éclairages ne seront plus adaptés tout au long de la journée."
 }
