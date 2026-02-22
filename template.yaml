@@ -125,8 +125,10 @@ trigger:
     id: auto_mode_enabled
 
   # Re-apply immediately after automation reload/save in HA UI.
+  # Keep explicit event_data to avoid frontend trace description errors.
   - platform: event
     event_type: automation_reloaded
+    event_data: {}
     id: automation_reloaded
 
   - platform: state
