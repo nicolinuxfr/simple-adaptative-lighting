@@ -102,9 +102,18 @@ variables:
   k_day: !input kelvin_day
   light_entities: !input target_lights
 
+trigger_variables:
+  tick_light_entities: !input target_lights
+
 trigger:
-  - platform: time_pattern
-    minutes: "/5"
+  - platform: template
+    # Run every 5 minutes only when at least one target light is currently on.
+    value_template: >
+      {{ now().minute % 5 == 0
+         and (expand(tick_light_entities)
+              | selectattr('state', 'eq', 'on')
+              | list
+              | count > 0) }}
     id: tick
 
   # Re-apply immediately when adaptive auto mode becomes active.
