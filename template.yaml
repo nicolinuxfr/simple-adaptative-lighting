@@ -106,7 +106,8 @@ trigger_variables:
   tick_light_entities: !input target_lights
 
 trigger:
-  - platform: template
+  - trigger: template
+    alias: Tick while lights on
     # Run every 5 minutes, but only while at least one target light is on.
     value_template: >
       {{ (now().minute % 5 == 0)
@@ -120,30 +121,35 @@ trigger:
 
   # Re-apply immediately when adaptive auto mode changes state.
   # Use state_changed event to support all transitions (on/off/unknown/unavailable).
-  - platform: event
+  - trigger: event
+    alias: Auto mode entity changed
     event_type: state_changed
     event_data:
       entity_id: !input auto_mode_boolean
     id: auto_mode_enabled
 
   # Re-apply immediately when automations are reloaded from HA UI/service.
-  - platform: event
+  - trigger: event
+    alias: Automations reloaded
     event_type: call_service
     event_data:
       domain: automation
       service: reload
     id: automations_reload_service
 
-  - platform: state
+  - trigger: state
+    alias: Light turned on
     entity_id: !input target_lights
     to: "on"
     id: light_on
 
-  - platform: sun
+  - trigger: sun
+    alias: Sunrise
     event: sunrise
     id: sun_event
 
-  - platform: sun
+  - trigger: sun
+    alias: Sunset
     event: sunset
     id: sun_event
 
