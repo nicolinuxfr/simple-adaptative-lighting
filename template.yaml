@@ -290,6 +290,11 @@ action:
             max_k: "{{ state_attr(repeat.item, 'max_color_temp_kelvin') | float(0) }}"
             # On periodic ticks, alternate between brightness and temperature updates.
             tick_updates_brightness: "{{ trigger.id == 'tick' and ((now_ts | int(0) // 300) % 2 == 0) }}"
+            # If a light was turned on very recently, bypass alternation once.
+            # This prevents keeping a stale brightness or color right after power-on.
+            recently_turned_on: >
+              {% set last_changed_ts = as_timestamp(states[repeat.item].last_changed) | float(0) %}
+              {{ is_state(repeat.item, 'on') and ((now_ts | float(0)) - last_changed_ts) < 20 }}
             has_brightness_attr: "{{ state_attr(repeat.item, 'brightness') is not none }}"
             has_ct_kelvin_attr: "{{ state_attr(repeat.item, 'color_temp_kelvin') is not none }}"
             has_ct_attr: "{{ state_attr(repeat.item, 'color_temp') is not none }}"
@@ -318,6 +323,22 @@ action:
                     {{ trigger.id == 'tick'
                        and supports_brightness
                        and supports_ct
+                       and recently_turned_on }}
+              sequence:
+                - service: light.turn_on
+                  target:
+                    entity_id: "{{ repeat.item }}"
+                  data:
+                    transition: 10
+                    brightness_pct: "{{ target_brightness | int(0) }}"
+                    color_temp_kelvin: "{{ clamped_kelvin | int(0) }}"
+            - conditions:
+                - condition: template
+                  value_template: >
+                    {{ trigger.id == 'tick'
+                       and supports_brightness
+                       and supports_ct
+                       and not recently_turned_on
                        and tick_updates_brightness }}
               sequence:
                 - service: light.turn_on
@@ -332,6 +353,7 @@ action:
                     {{ trigger.id == 'tick'
                        and supports_brightness
                        and supports_ct
+                       and not recently_turned_on
                        and not tick_updates_brightness }}
               sequence:
                 - service: light.turn_on
