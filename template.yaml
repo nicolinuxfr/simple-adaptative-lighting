@@ -107,17 +107,19 @@ trigger_variables:
 
 trigger:
   - platform: template
-    # Run every 5 minutes only when at least one target light is currently on.
+    # Run every 5 minutes, but only while at least one target light is on.
     value_template: >
-      {{ now().minute % 5 == 0
-         and (expand(tick_light_entities)
-              | selectattr('state', 'eq', 'on')
-              | list
-              | count > 0) }}
+      {{ (now().minute % 5 == 0)
+         and (
+           expand(tick_light_entities)
+           | selectattr('state', 'eq', 'on')
+           | list
+           | count
+         ) > 0 }}
     id: tick
 
-  # Re-apply immediately when adaptive auto mode becomes active.
-  # Use state_changed event + filter to support off/unknown/unavailable -> on transitions.
+  # Re-apply immediately when adaptive auto mode changes state.
+  # Use state_changed event to support all transitions (on/off/unknown/unavailable).
   - platform: event
     event_type: state_changed
     event_data:
