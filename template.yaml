@@ -227,7 +227,7 @@ action:
       - conditions:
           - condition: template
             value_template: >
-              {{ trigger.id == 'light_on'
+              {{ trigger.id in ['light_on', 'automations_reload_service']
                  and weather_variability_enabled
                  and weather_entity_id not in ['', none] }}
         sequence:
@@ -272,7 +272,7 @@ action:
       weather_curve_influence: 0.6
       weather_kelvin_influence: 0.6
       weather_condition_from_forecast: >
-        {% if trigger.id == 'light_on'
+        {% if trigger.id in ['light_on', 'automations_reload_service']
            and weather_daily_forecast_response is defined
            and weather_entity_id in weather_daily_forecast_response
            and weather_daily_forecast_response[weather_entity_id].forecast is defined
@@ -307,7 +307,7 @@ action:
       weather_data_available: >
         {{ weather_state_available or weather_forecast_available }}
       weather_precipitation_probability: >
-        {% if trigger.id == 'light_on'
+        {% if trigger.id in ['light_on', 'automations_reload_service']
            and weather_daily_forecast_response is defined
            and weather_entity_id in weather_daily_forecast_response
            and weather_daily_forecast_response[weather_entity_id].forecast is defined
