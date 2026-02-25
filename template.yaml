@@ -318,6 +318,13 @@ action:
               {{ has_brightness_attr
                  or (modes_count == 0)
                  or not onoff_only }}
+            current_brightness_pct: >
+              {% set b = state_attr(repeat.item, 'brightness') %}
+              {% if b is not none %}
+                {{ [1, [((b | float(0)) / 2.55) | round(0) | int, 100] | min] | max }}
+              {% else %}
+                {{ target_brightness | int(0) }}
+              {% endif %}
             clamped_kelvin: >
               {% if min_k > 0 and max_k > 0 %}
                 {{ [min_k, [target_kelvin | float(0), max_k] | min] | max | round(0) | int }}
@@ -369,6 +376,7 @@ action:
                     entity_id: "{{ repeat.item }}"
                   data:
                     transition: 10
+                    brightness_pct: "{{ current_brightness_pct | int(0) }}"
                     color_temp_kelvin: "{{ clamped_kelvin | int(0) }}"
             - conditions:
                 - condition: template
