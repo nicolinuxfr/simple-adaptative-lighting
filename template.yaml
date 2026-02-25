@@ -330,16 +330,28 @@ action:
         {% set c = weather_condition | lower %}
         {% if c in ['sunny', 'clear-night'] %}
           0.0
-        {% elif c in ['partlycloudy', 'windy', 'windy-variant'] %}
+        {% elif c in ['partlycloudy'] %}
           0.35
-        {% elif c in ['cloudy', 'hail', 'snowy', 'snowy-rainy'] %}
+        {% elif c in ['windy'] %}
+          0.45
+        {% elif c in ['windy-variant', 'cloudy'] %}
+          0.55
+        {% elif c in ['snowy'] %}
+          0.6
+        {% elif c in ['snowy-rainy', 'hail'] %}
           0.65
-        {% elif c in ['fog', 'rainy', 'lightning-rainy', 'pouring'] %}
+        {% elif c in ['fog'] %}
+          0.75
+        {% elif c in ['rainy'] %}
+          0.8
+        {% elif c in ['pouring'] %}
           0.85
-        {% elif c in ['lightning', 'exceptional'] %}
+        {% elif c in ['lightning', 'lightning-rainy'] %}
           0.9
+        {% elif c in ['exceptional'] %}
+          0.95
         {% else %}
-          0.5
+          0.0
         {% endif %}
       weather_precipitation_factor: >
         {% set p = weather_precipitation_probability | float(0) %}
