@@ -20,7 +20,7 @@
   "input.auto_mode_boolean.description": "Sélectionner une entité de type input_boolean ou binary_sensor qui contrôlera l'automatisation. Quand elle est inactive, les éclairages ne seront plus adaptés tout au long de la journée.",
   "input.weather_variability_section.name": "Variabilité météo",
   "input.enable_weather_variability.name": "Activer la variabilité météo",
-  "input.enable_weather_variability.description": "Applique une légère variation de la courbe et de la température selon la météo. La prévision journalière n'est demandée qu'à l'activation d'une lumière.",
+  "input.enable_weather_variability.description": "Applique une variation de la courbe et de la température selon l'état météo actuel.",
   "input.weather_entity.name": "Entité météo",
   "input.weather_entity.description": "Sélectionner l'entité météo utilisée pour ajuster les paramètres."
 }

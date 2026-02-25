@@ -20,7 +20,7 @@
   "input.auto_mode_boolean.description": "Select an input_boolean or binary_sensor entity to control the automation. When it is inactive, lights will no longer adapt throughout the day.",
   "input.weather_variability_section.name": "Weather variability",
   "input.enable_weather_variability.name": "Enable weather variability",
-  "input.enable_weather_variability.description": "Applies slight curve and temperature changes based on weather. The daily forecast is only requested when a light turns on.",
+  "input.enable_weather_variability.description": "Applies curve and temperature changes based on the current weather state.",
   "input.weather_entity.name": "Weather entity",
   "input.weather_entity.description": "Select the weather entity used to adjust settings."
 }
