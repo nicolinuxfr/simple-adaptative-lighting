@@ -304,12 +304,33 @@ action:
         {% else %}
           0
         {% endif %}
+      configured_lights_count: "{{ light_entities | count }}"
+      single_light_mode: "{{ (configured_lights_count | int(0)) == 1 }}"
       brightness_curve_gamma: 1.2
       effective_brightness_curve_gamma: >
         {% set base = brightness_curve_gamma | float(1.2) %}
         {% set w = weather_factor | float(0) %}
         {% set adjusted = base + (w * weather_curve_influence | float(1.0) * 0.25) %}
         {{ [0.8, [adjusted, 2.2] | min] | max }}
+      daylight_progress: >
+        {% if sunrise_ts is not none and sunset_ts is not none %}
+          {% set t = now_ts | float(0) %}
+          {% set sr0 = sunrise_ts | float(0) %}
+          {% set ss0 = sunset_ts | float(0) %}
+          {% set sr_prev = previous_sunrise_ts | float(0) %}
+          {% set ss_prev = previous_sunset_ts | float(0) %}
+          {% if t >= sr0 and t < ss0 %}
+            {% set d = (t - sr0) / (ss0 - sr0) %}
+            {{ [0, [d, 1] | min] | max }}
+          {% elif t >= sr_prev and t < ss_prev %}
+            {% set d = (t - sr_prev) / (ss_prev - sr_prev) %}
+            {{ [0, [d, 1] | min] | max }}
+          {% else %}
+            {{ none }}
+          {% endif %}
+        {% else %}
+          {{ none }}
+        {% endif %}
       # sun_position in [-1, 1]: 0 at adjusted sunrise/sunset, +1 at noon, -1 at midnight.
       sun_position: >
         {% if sunrise_ts is not none and sunset_ts is not none %}
@@ -350,7 +371,18 @@ action:
         {% set p = sun_position | float(0) %}
         {% if p > 0 %}
           {% set s0 = p * p * p * ((p * ((6 * p) - 15)) + 10) %}
-          {{ s0 ** (effective_brightness_curve_gamma | float(1.2)) }}
+          {% set base_curve = s0 ** (effective_brightness_curve_gamma | float(1.2)) %}
+          {% set d = daylight_progress %}
+          {% if single_light_mode and d not in [none, 'none', ''] %}
+            {% set day_ratio = d | float(0) %}
+            {% if day_ratio < 0.5 %}
+              {{ base_curve ** 0.78 }}
+            {% else %}
+              {{ base_curve ** 0.62 }}
+            {% endif %}
+          {% else %}
+            {{ base_curve }}
+          {% endif %}
         {% else %}
           0
         {% endif %}
