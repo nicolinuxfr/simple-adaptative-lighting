@@ -269,8 +269,8 @@ action:
         {% else %}
           {{ none }}
         {% endif %}
-      weather_curve_influence: 0.6
-      weather_kelvin_influence: 0.6
+      weather_curve_influence: 1.0
+      weather_kelvin_influence: 1.0
       weather_condition_from_forecast: >
         {% if trigger.id in ['light_on', 'automations_reload_service']
            and weather_daily_forecast_response is defined
@@ -358,7 +358,7 @@ action:
       effective_brightness_curve_gamma: >
         {% set base = brightness_curve_gamma | float(1.2) %}
         {% set w = weather_factor | float(0) %}
-        {% set adjusted = base - (w * weather_curve_influence | float(0.6) * 0.25) %}
+        {% set adjusted = base + (w * weather_curve_influence | float(1.0) * 0.25) %}
         {{ [0.8, [adjusted, 2.2] | min] | max }}
       # sun_position in [-1, 1]: 0 at adjusted sunrise/sunset, +1 at noon, -1 at midnight.
       sun_position: >
@@ -406,8 +406,8 @@ action:
         {% endif %}
       weather_kelvin_offset: >
         {% set w = weather_factor | float(0) %}
-        {% set centered = ((w * 900) - 450) %}
-        {{ centered * (weather_kelvin_influence | float(0.6)) }}
+        {% set centered = ((0.5 - w) * 900) %}
+        {{ centered * (weather_kelvin_influence | float(1.0)) }}
       target_brightness: >
         {% set b_min = [b_night | float(1), b_day | float(100)] | min %}
         {% set b_max = [b_night | float(1), b_day | float(100)] | max %}
