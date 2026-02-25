@@ -298,6 +298,14 @@ action:
         {% else %}
           {{ weather_condition_state }}
         {% endif %}
+      weather_state_available: >
+        {% set c = weather_condition_state | lower %}
+        {{ c not in ['', 'unknown', 'unavailable', 'none'] }}
+      weather_forecast_available: >
+        {% set c = weather_condition_from_forecast | lower %}
+        {{ c not in ['', 'unknown', 'unavailable', 'none'] }}
+      weather_data_available: >
+        {{ weather_state_available or weather_forecast_available }}
       weather_precipitation_probability: >
         {% if trigger.id == 'light_on'
            and weather_daily_forecast_response is defined
@@ -337,7 +345,9 @@ action:
         {% set p = weather_precipitation_probability | float(0) %}
         {{ [0, [p / 100, 1] | min] | max }}
       weather_factor: >
-        {% if weather_variability_enabled and weather_entity_id not in ['', none] %}
+        {% if weather_variability_enabled
+           and weather_entity_id not in ['', none]
+           and weather_data_available %}
           {% set wc = weather_condition_factor | float(0.5) %}
           {% set wp = weather_precipitation_factor | float(0) %}
           {{ [wc, wp] | max }}
