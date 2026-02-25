@@ -90,6 +90,26 @@ blueprint:
                 - domain: input_boolean
                 - domain: binary_sensor
 
+    weather_variability_section:
+      name: [[input.weather_variability_section.name]]
+      icon: mdi:weather-partly-cloudy
+      collapsed: true
+      input:
+        enable_weather_variability:
+          name: [[input.enable_weather_variability.name]]
+          description: [[input.enable_weather_variability.description]]
+          default: false
+          selector:
+            boolean:
+
+        weather_entity:
+          name: [[input.weather_entity.name]]
+          description: [[input.weather_entity.description]]
+          default: ""
+          selector:
+            entity:
+              domain: weather
+
 mode: restart
 
 variables:
@@ -101,6 +121,8 @@ variables:
   k_night: !input kelvin_night
   k_day: !input kelvin_day
   light_entities: !input target_lights
+  weather_variability_enabled: !input enable_weather_variability
+  weather_entity_id: !input weather_entity
 
 trigger_variables:
   tick_light_entities: !input target_lights
@@ -201,6 +223,21 @@ action:
   - condition: template
     value_template: "{{ target_lights_to_update | count > 0 }}"
 
+  - choose:
+      - conditions:
+          - condition: template
+            value_template: >
+              {{ trigger.id == 'light_on'
+                 and weather_variability_enabled
+                 and weather_entity_id not in ['', none] }}
+        sequence:
+          - service: weather.get_forecasts
+            target:
+              entity_id: "{{ weather_entity_id }}"
+            data:
+              type: daily
+            response_variable: weather_daily_forecast_response
+
   - variables:
       now_ts: "{{ as_timestamp(now()) }}"
       next_rising_ts: "{{ as_timestamp(state_attr('sun.sun', 'next_rising')) }}"
@@ -232,7 +269,77 @@ action:
         {% else %}
           {{ none }}
         {% endif %}
+      weather_curve_influence: 0.6
+      weather_kelvin_influence: 0.6
+      weather_condition_from_forecast: >
+        {% if trigger.id == 'light_on'
+           and weather_daily_forecast_response is defined
+           and weather_entity_id in weather_daily_forecast_response
+           and weather_daily_forecast_response[weather_entity_id].forecast is defined
+           and (weather_daily_forecast_response[weather_entity_id].forecast | count) > 0 %}
+          {{ weather_daily_forecast_response[weather_entity_id].forecast[0].condition | default('', true) | lower }}
+        {% else %}
+          {{ '' }}
+        {% endif %}
+      weather_condition_state: >
+        {% if weather_entity_id not in ['', none] %}
+          {{ states(weather_entity_id) | lower }}
+        {% else %}
+          {{ '' }}
+        {% endif %}
+      weather_condition: >
+        {% if weather_condition_from_forecast not in ['', none] %}
+          {{ weather_condition_from_forecast }}
+        {% else %}
+          {{ weather_condition_state }}
+        {% endif %}
+      weather_precipitation_probability: >
+        {% if trigger.id == 'light_on'
+           and weather_daily_forecast_response is defined
+           and weather_entity_id in weather_daily_forecast_response
+           and weather_daily_forecast_response[weather_entity_id].forecast is defined
+           and (weather_daily_forecast_response[weather_entity_id].forecast | count) > 0 %}
+          {% set p = weather_daily_forecast_response[weather_entity_id].forecast[0].precipitation_probability %}
+          {% if p is not none %}
+            {{ p | float(0) }}
+          {% else %}
+            0
+          {% endif %}
+        {% else %}
+          0
+        {% endif %}
+      weather_condition_factor: >
+        {% set c = weather_condition | lower %}
+        {% if c in ['sunny', 'clear-night'] %}
+          0.0
+        {% elif c in ['partlycloudy', 'windy', 'windy-variant'] %}
+          0.35
+        {% elif c in ['cloudy', 'hail', 'snowy', 'snowy-rainy'] %}
+          0.65
+        {% elif c in ['fog', 'rainy', 'lightning-rainy', 'pouring'] %}
+          0.85
+        {% elif c in ['lightning', 'exceptional'] %}
+          0.9
+        {% else %}
+          0.5
+        {% endif %}
+      weather_precipitation_factor: >
+        {% set p = weather_precipitation_probability | float(0) %}
+        {{ [0, [p / 100, 1] | min] | max }}
+      weather_factor: >
+        {% if weather_variability_enabled and weather_entity_id not in ['', none] %}
+          {% set wc = weather_condition_factor | float(0.5) %}
+          {% set wp = weather_precipitation_factor | float(0) %}
+          {{ [wc, wp] | max }}
+        {% else %}
+          0
+        {% endif %}
       brightness_curve_gamma: 1.2
+      effective_brightness_curve_gamma: >
+        {% set base = brightness_curve_gamma | float(1.2) %}
+        {% set w = weather_factor | float(0) %}
+        {% set adjusted = base - (w * weather_curve_influence | float(0.6) * 0.25) %}
+        {{ [0.8, [adjusted, 2.2] | min] | max }}
       # sun_position in [-1, 1]: 0 at adjusted sunrise/sunset, +1 at noon, -1 at midnight.
       sun_position: >
         {% if sunrise_ts is not none and sunset_ts is not none %}
@@ -273,10 +380,14 @@ action:
         {% set p = sun_position | float(0) %}
         {% if p > 0 %}
           {% set s0 = p * p * p * ((p * ((6 * p) - 15)) + 10) %}
-          {{ s0 ** (brightness_curve_gamma | float(1.5)) }}
+          {{ s0 ** (effective_brightness_curve_gamma | float(1.2)) }}
         {% else %}
           0
         {% endif %}
+      weather_kelvin_offset: >
+        {% set w = weather_factor | float(0) %}
+        {% set centered = ((w * 900) - 450) %}
+        {{ centered * (weather_kelvin_influence | float(0.6)) }}
       target_brightness: >
         {% set b_min = [b_night | float(1), b_day | float(100)] | min %}
         {% set b_max = [b_night | float(1), b_day | float(100)] | max %}
@@ -286,7 +397,9 @@ action:
         {% set k_min = [k_night | float(2200), k_day | float(5000)] | min %}
         {% set k_max = [k_night | float(2200), k_day | float(5000)] | max %}
         {% set f = adaptive_curve_factor | float(0) %}
-        {{ (k_min + (k_max - k_min) * f) | round(0) | int }}
+        {% set base = (k_min + (k_max - k_min) * f) %}
+        {% set adjusted = base + (weather_kelvin_offset | float(0)) %}
+        {{ [k_min, [adjusted, k_max] | min] | max | round(0) | int }}
 
   - repeat:
       for_each: "{{ target_lights_to_update }}"
