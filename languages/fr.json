@@ -22,5 +22,5 @@
   "input.enable_weather_variability.name": "Activer la variabilité météo",
   "input.enable_weather_variability.description": "Applique une légère variation de la courbe et de la température selon la météo. La prévision journalière n'est demandée qu'à l'activation d'une lumière.",
   "input.weather_entity.name": "Entité météo",
-  "input.weather_entity.description": "Sélectionner l'entité météo utilisée pour ajuster les paramètres (ex: weather.pont_aven)."
+  "input.weather_entity.description": "Sélectionner l'entité météo utilisée pour ajuster les paramètres."
 }

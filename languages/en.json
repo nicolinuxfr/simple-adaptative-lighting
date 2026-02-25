@@ -22,5 +22,5 @@
   "input.enable_weather_variability.name": "Enable weather variability",
   "input.enable_weather_variability.description": "Applies slight curve and temperature changes based on weather. The daily forecast is only requested when a light turns on.",
   "input.weather_entity.name": "Weather entity",
-  "input.weather_entity.description": "Select the weather entity used to adjust settings (e.g., weather.pont_aven)."
+  "input.weather_entity.description": "Select the weather entity used to adjust settings."
 }
