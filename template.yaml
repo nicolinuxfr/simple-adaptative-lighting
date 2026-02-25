@@ -277,7 +277,12 @@ action:
            and weather_entity_id in weather_daily_forecast_response
            and weather_daily_forecast_response[weather_entity_id].forecast is defined
            and (weather_daily_forecast_response[weather_entity_id].forecast | count) > 0 %}
-          {{ weather_daily_forecast_response[weather_entity_id].forecast[0].condition | default('', true) | lower }}
+          {% set first_forecast = weather_daily_forecast_response[weather_entity_id].forecast[0] %}
+          {% if first_forecast is mapping %}
+            {{ first_forecast.get('condition', '') | lower }}
+          {% else %}
+            {{ '' }}
+          {% endif %}
         {% else %}
           {{ '' }}
         {% endif %}
@@ -299,9 +304,14 @@ action:
            and weather_entity_id in weather_daily_forecast_response
            and weather_daily_forecast_response[weather_entity_id].forecast is defined
            and (weather_daily_forecast_response[weather_entity_id].forecast | count) > 0 %}
-          {% set p = weather_daily_forecast_response[weather_entity_id].forecast[0].precipitation_probability %}
-          {% if p is not none %}
-            {{ p | float(0) }}
+          {% set first_forecast = weather_daily_forecast_response[weather_entity_id].forecast[0] %}
+          {% if first_forecast is mapping %}
+            {% set p = first_forecast.get('precipitation_probability') %}
+            {% if p is not none %}
+              {{ p | float(0) }}
+            {% else %}
+              0
+            {% endif %}
           {% else %}
             0
           {% endif %}
