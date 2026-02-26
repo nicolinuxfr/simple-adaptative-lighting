@@ -456,6 +456,7 @@ action:
                        and recently_turned_on }}
               sequence:
                 - service: light.turn_on
+                  continue_on_error: true
                   target:
                     entity_id: "{{ repeat.item }}"
                   data:
@@ -472,6 +473,7 @@ action:
                        and tick_updates_brightness }}
               sequence:
                 - service: light.turn_on
+                  continue_on_error: true
                   target:
                     entity_id: "{{ repeat.item }}"
                   data:
@@ -487,6 +489,7 @@ action:
                        and not tick_updates_brightness }}
               sequence:
                 - service: light.turn_on
+                  continue_on_error: true
                   target:
                     entity_id: "{{ repeat.item }}"
                   data:
@@ -498,6 +501,7 @@ action:
                   value_template: "{{ supports_brightness and supports_ct }}"
               sequence:
                 - service: light.turn_on
+                  continue_on_error: true
                   target:
                     entity_id: "{{ repeat.item }}"
                   data:
@@ -509,6 +513,7 @@ action:
                   value_template: "{{ supports_brightness }}"
               sequence:
                 - service: light.turn_on
+                  continue_on_error: true
                   target:
                     entity_id: "{{ repeat.item }}"
                   data:
@@ -519,6 +524,7 @@ action:
                   value_template: "{{ supports_ct }}"
               sequence:
                 - service: light.turn_on
+                  continue_on_error: true
                   target:
                     entity_id: "{{ repeat.item }}"
                   data:
@@ -526,6 +532,7 @@ action:
                     color_temp_kelvin: "{{ clamped_kelvin | int(0) }}"
           default:
             - service: light.turn_on
+              continue_on_error: true
               target:
                 entity_id: "{{ repeat.item }}"
               data:
