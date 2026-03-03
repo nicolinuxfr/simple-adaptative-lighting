@@ -1,6 +1,6 @@
 # Blueprint Home Assistant: Simple Adaptive Lighting
 
-English version: [`README.md`](README.md)
+English version: [`README.md`](README.md) — Version allemande : [`README.de.md`](README.de.md)
 
 
 ## Utiliser le blueprint
@@ -52,6 +52,8 @@ Utilise les URLs `raw` de la branche `gh-pages` :
   - `https://raw.githubusercontent.com/<owner>/<repo>/gh-pages/en/adaptive_lighting.yaml`
 - Francais :
   - `https://raw.githubusercontent.com/<owner>/<repo>/gh-pages/fr/adaptive_lighting.yaml`
+- Allemand :
+  - `https://raw.githubusercontent.com/<owner>/<repo>/gh-pages/de/adaptive_lighting.yaml`
 
 Ces URLs restent stables tant que la branche `gh-pages` et les chemins sont conserves.
 
