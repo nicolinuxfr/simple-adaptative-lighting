@@ -22,5 +22,14 @@
   "input.enable_weather_variability.name": "Enable weather variability",
   "input.enable_weather_variability.description": "Applies curve and temperature changes based on the current weather state.",
   "input.weather_entity.name": "Weather entity",
-  "input.weather_entity.description": "Select the weather entity used to adjust settings."
+  "input.weather_entity.description": "Select the weather entity used to adjust settings.",
+  "input.night_mode_section.name": "Night mode",
+  "input.enable_night_mode.name": "Enable night mode",
+  "input.enable_night_mode.description": "When checked, an input_boolean or binary_sensor entity will switch the lights to a fixed night-time setting.",
+  "input.night_mode_entity.name": "Night mode control entity",
+  "input.night_mode_entity.description": "Select an input_boolean or binary_sensor entity. When it is active, lights switch to the fixed brightness and temperature defined below.",
+  "input.night_mode_brightness.name": "Night brightness",
+  "input.night_mode_brightness.description": "Fixed brightness applied when night mode is active.",
+  "input.night_mode_kelvin.name": "Night temperature",
+  "input.night_mode_kelvin.description": "Fixed white temperature applied when night mode is active (in Kelvin)."
 }

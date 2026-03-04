@@ -110,6 +110,52 @@ blueprint:
             entity:
               domain: weather
 
+    night_mode_section:
+      name: [[input.night_mode_section.name]]
+      icon: mdi:weather-night
+      collapsed: true
+      input:
+        enable_night_mode:
+          name: [[input.enable_night_mode.name]]
+          description: [[input.enable_night_mode.description]]
+          default: false
+          selector:
+            boolean:
+
+        night_mode_entity:
+          name: [[input.night_mode_entity.name]]
+          description: [[input.night_mode_entity.description]]
+          default: ""
+          selector:
+            entity:
+              filter:
+                - domain: input_boolean
+                - domain: binary_sensor
+
+        night_mode_brightness:
+          name: [[input.night_mode_brightness.name]]
+          description: [[input.night_mode_brightness.description]]
+          default: 20
+          selector:
+            number:
+              min: 1
+              max: 100
+              step: 1
+              mode: slider
+              unit_of_measurement: "%"
+
+        night_mode_kelvin:
+          name: [[input.night_mode_kelvin.name]]
+          description: [[input.night_mode_kelvin.description]]
+          default: 2200
+          selector:
+            number:
+              min: 1800
+              max: 5000
+              step: 50
+              mode: slider
+              unit_of_measurement: K
+
 mode: restart
 
 variables:
@@ -123,6 +169,10 @@ variables:
   light_entities: !input target_lights
   weather_variability_enabled: !input enable_weather_variability
   weather_entity_id: !input weather_entity
+  night_mode_enabled: !input enable_night_mode
+  night_mode_entity_id: !input night_mode_entity
+  nm_brightness: !input night_mode_brightness
+  nm_kelvin: !input night_mode_kelvin
 
 trigger_variables:
   tick_light_entities: !input target_lights
@@ -149,6 +199,14 @@ trigger:
     event_data:
       entity_id: !input auto_mode_boolean
     id: auto_mode_enabled
+
+  # Re-apply immediately when night mode changes state.
+  - trigger: event
+    alias: Night mode entity changed
+    event_type: state_changed
+    event_data:
+      entity_id: !input night_mode_entity
+    id: night_mode_changed
 
   # Re-apply immediately when automations are reloaded from HA UI/service.
   - trigger: event
@@ -178,9 +236,10 @@ trigger:
 condition:
   - condition: template
     value_template: >
-      {{ trigger.id != 'auto_mode_enabled'
+      {{ trigger.id not in ['auto_mode_enabled', 'night_mode_changed']
          or (
-           auto_mode_enabled
+           trigger.id == 'auto_mode_enabled'
+           and auto_mode_enabled
            and auto_mode_input_entity not in ['', none]
            and trigger.event is defined
            and trigger.event.data is defined
@@ -189,6 +248,18 @@ condition:
            and (
              trigger.event.data.old_state is none
              or trigger.event.data.old_state.state != 'on'
+           )
+         )
+         or (
+           trigger.id == 'night_mode_changed'
+           and night_mode_enabled
+           and night_mode_entity_id not in ['', none]
+           and trigger.event is defined
+           and trigger.event.data is defined
+           and trigger.event.data.new_state is not none
+           and (
+             trigger.event.data.old_state is none
+             or trigger.event.data.old_state.state != trigger.event.data.new_state.state
            )
          ) }}
 
@@ -403,6 +474,16 @@ action:
         {% set adjusted = base + (weather_kelvin_offset | float(0)) %}
         {{ [k_min, [adjusted, k_max] | min] | max | round(0) | int }}
 
+  - variables:
+      night_mode_active: >
+        {{ night_mode_enabled
+           and night_mode_entity_id not in ['', none]
+           and is_state(night_mode_entity_id, 'on') }}
+      effective_brightness: >
+        {{ nm_brightness | int(20) if night_mode_active else target_brightness | int(0) }}
+      effective_kelvin: >
+        {{ nm_kelvin | int(2200) if night_mode_active else target_kelvin | int(0) }}
+
   - repeat:
       for_each: "{{ target_lights_to_update }}"
       sequence:
@@ -438,13 +519,13 @@ action:
               {% if b is not none %}
                 {{ [1, [((b | float(0)) / 2.55) | round(0) | int, 100] | min] | max }}
               {% else %}
-                {{ target_brightness | int(0) }}
+                {{ effective_brightness | int(0) }}
               {% endif %}
             clamped_kelvin: >
               {% if min_k > 0 and max_k > 0 %}
-                {{ [min_k, [target_kelvin | float(0), max_k] | min] | max | round(0) | int }}
+                {{ [min_k, [effective_kelvin | float(0), max_k] | min] | max | round(0) | int }}
               {% else %}
-                {{ target_kelvin | int(0) }}
+                {{ effective_kelvin | int(0) }}
               {% endif %}
         - choose:
             - conditions:
@@ -461,7 +542,7 @@ action:
                     entity_id: "{{ repeat.item }}"
                   data:
                     transition: 10
-                    brightness_pct: "{{ target_brightness | int(0) }}"
+                    brightness_pct: "{{ effective_brightness | int(0) }}"
                     color_temp_kelvin: "{{ clamped_kelvin | int(0) }}"
             - conditions:
                 - condition: template
@@ -478,7 +559,7 @@ action:
                     entity_id: "{{ repeat.item }}"
                   data:
                     transition: 10
-                    brightness_pct: "{{ target_brightness | int(0) }}"
+                    brightness_pct: "{{ effective_brightness | int(0) }}"
             - conditions:
                 - condition: template
                   value_template: >
@@ -494,7 +575,7 @@ action:
                     entity_id: "{{ repeat.item }}"
                   data:
                     transition: 10
-                    brightness_pct: "{{ current_brightness_pct | int(0) }}"
+                    brightness_pct: "{{ effective_brightness | int(0) if night_mode_active else current_brightness_pct | int(0) }}"
                     color_temp_kelvin: "{{ clamped_kelvin | int(0) }}"
             - conditions:
                 - condition: template
@@ -506,7 +587,7 @@ action:
                     entity_id: "{{ repeat.item }}"
                   data:
                     transition: 10
-                    brightness_pct: "{{ target_brightness | int(0) }}"
+                    brightness_pct: "{{ effective_brightness | int(0) }}"
                     color_temp_kelvin: "{{ clamped_kelvin | int(0) }}"
             - conditions:
                 - condition: template
@@ -518,7 +599,7 @@ action:
                     entity_id: "{{ repeat.item }}"
                   data:
                     transition: 10
-                    brightness_pct: "{{ target_brightness | int(0) }}"
+                    brightness_pct: "{{ effective_brightness | int(0) }}"
             - conditions:
                 - condition: template
                   value_template: "{{ supports_ct }}"

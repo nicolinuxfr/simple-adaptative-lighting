@@ -22,5 +22,14 @@
   "input.enable_weather_variability.name": "Wettervariabilität aktivieren",
   "input.enable_weather_variability.description": "Wendet Kurven- und Temperaturänderungen basierend auf dem aktuellen Wetterzustand an.",
   "input.weather_entity.name": "Wetterentität",
-  "input.weather_entity.description": "Wählen Sie die Wetterentität aus, die zur Anpassung der Einstellungen verwendet wird."
+  "input.weather_entity.description": "Wählen Sie die Wetterentität aus, die zur Anpassung der Einstellungen verwendet wird.",
+  "input.night_mode_section.name": "Nachtmodus",
+  "input.enable_night_mode.name": "Nachtmodus aktivieren",
+  "input.enable_night_mode.description": "Wenn diese Option aktiviert ist, schaltet eine input_boolean- oder binary_sensor-Entität die Leuchten auf feste Nachteinstellungen.",
+  "input.night_mode_entity.name": "Steuerungsentität für den Nachtmodus",
+  "input.night_mode_entity.description": "Wählen Sie eine input_boolean- oder binary_sensor-Entität. Wenn sie aktiv ist, wechseln die Leuchten zur unten definierten festen Helligkeit und Temperatur.",
+  "input.night_mode_brightness.name": "Nacht-Helligkeit",
+  "input.night_mode_brightness.description": "Feste Helligkeit, die im Nachtmodus angewendet wird.",
+  "input.night_mode_kelvin.name": "Nacht-Temperatur",
+  "input.night_mode_kelvin.description": "Feste Weißtemperatur, die im Nachtmodus angewendet wird (in Kelvin)."
 }
