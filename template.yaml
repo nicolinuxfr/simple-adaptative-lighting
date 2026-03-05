@@ -73,13 +73,6 @@ blueprint:
       icon: mdi:toggle-switch
       collapsed: true
       input:
-        enable_auto_mode:
-          name: [[input.enable_auto_mode.name]]
-          description: [[input.enable_auto_mode.description]]
-          default: false
-          selector:
-            boolean:
-
         auto_mode_boolean:
           name: [[input.auto_mode_boolean.name]]
           description: [[input.auto_mode_boolean.description]]
@@ -95,13 +88,6 @@ blueprint:
       icon: mdi:weather-partly-cloudy
       collapsed: true
       input:
-        enable_weather_variability:
-          name: [[input.enable_weather_variability.name]]
-          description: [[input.enable_weather_variability.description]]
-          default: false
-          selector:
-            boolean:
-
         weather_entity:
           name: [[input.weather_entity.name]]
           description: [[input.weather_entity.description]]
@@ -115,13 +101,6 @@ blueprint:
       icon: mdi:weather-night
       collapsed: true
       input:
-        enable_night_mode:
-          name: [[input.enable_night_mode.name]]
-          description: [[input.enable_night_mode.description]]
-          default: false
-          selector:
-            boolean:
-
         night_mode_entity:
           name: [[input.night_mode_entity.name]]
           description: [[input.night_mode_entity.description]]
@@ -160,16 +139,13 @@ mode: restart
 
 variables:
   blueprint_revision: "[[blueprint.version]]"
-  auto_mode_enabled: !input enable_auto_mode
   auto_mode_input_entity: !input auto_mode_boolean
   b_night: !input brightness_night
   b_day: !input brightness_day
   k_night: !input kelvin_night
   k_day: !input kelvin_day
   light_entities: !input target_lights
-  weather_variability_enabled: !input enable_weather_variability
   weather_entity_id: !input weather_entity
-  night_mode_enabled: !input enable_night_mode
   night_mode_entity_id: !input night_mode_entity
   nm_brightness: !input night_mode_brightness
   nm_kelvin: !input night_mode_kelvin
@@ -239,7 +215,6 @@ condition:
       {{ trigger.id not in ['auto_mode_enabled', 'night_mode_changed']
          or (
            trigger.id == 'auto_mode_enabled'
-           and auto_mode_enabled
            and auto_mode_input_entity not in ['', none]
            and trigger.event is defined
            and trigger.event.data is defined
@@ -252,7 +227,6 @@ condition:
          )
          or (
            trigger.id == 'night_mode_changed'
-           and night_mode_enabled
            and night_mode_entity_id not in ['', none]
            and trigger.event is defined
            and trigger.event.data is defined
@@ -265,8 +239,7 @@ condition:
 
   - condition: template
     value_template: >
-      {{ not auto_mode_enabled
-         or auto_mode_input_entity in ['', none]
+      {{ auto_mode_input_entity in ['', none]
          or is_state(auto_mode_input_entity, 'on') }}
 
 action:
@@ -368,8 +341,7 @@ action:
           0.0
         {% endif %}
       weather_factor: >
-        {% if weather_variability_enabled
-           and weather_entity_id not in ['', none]
+        {% if weather_entity_id not in ['', none]
            and weather_data_available %}
           {{ weather_condition_factor | float(0) }}
         {% else %}
@@ -476,8 +448,7 @@ action:
 
   - variables:
       night_mode_active: >
-        {{ night_mode_enabled
-           and night_mode_entity_id not in ['', none]
+        {{ night_mode_entity_id not in ['', none]
            and is_state(night_mode_entity_id, 'on') }}
       effective_brightness: >
         {{ nm_brightness | int(20) if night_mode_active else target_brightness | int(0) }}
