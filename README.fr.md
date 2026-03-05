@@ -10,7 +10,7 @@ Vous pouvez ajouter ce *blueprint* à votre instance Home Assistant en utilisant
 
 À défaut, vous pouvez copier ce lien pour le coller dans Home Assistant lors de l’ajout d’un blueprint :
 
-	https://raw.githubusercontent.com//nicolinuxfr/simple-adaptive-lighting-blueprint/gh-pages/fr/adaptive_lighting.yaml
+	https://raw.githubusercontent.com/nicolinuxfr/simple-adaptive-lighting-blueprint/gh-pages/fr/adaptive_lighting.yaml
 
 ## Configuration
 
