@@ -2,7 +2,10 @@
 
 ## 2026.3.2
 
-- Simplification of the blueprint, with only two sections now
+- Simplification of the blueprint, with only three sections now : 
+  - Main settings (brightness min/max and white temp min/max)
+  - Advanced settings (control mode, weather adaptation)
+  - Night mode
 
 ## 2026.3.1
 
