@@ -68,9 +68,9 @@ blueprint:
               mode: slider
               unit_of_measurement: K
 
-    auto_mode_section:
-      name: [[input.auto_mode_section.name]]
-      icon: mdi:toggle-switch
+    advanced_settings:
+      name: [[input.advanced_settings.name]]
+      icon: mdi:cog
       collapsed: true
       input:
         auto_mode_boolean:
@@ -83,11 +83,6 @@ blueprint:
                 - domain: input_boolean
                 - domain: binary_sensor
 
-    weather_variability_section:
-      name: [[input.weather_variability_section.name]]
-      icon: mdi:weather-partly-cloudy
-      collapsed: true
-      input:
         weather_entity:
           name: [[input.weather_entity.name]]
           description: [[input.weather_entity.description]]

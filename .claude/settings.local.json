@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python3 scripts/generate_blueprints.py)"
+      "Bash(python3 scripts/generate_blueprints.py)",
+      "Bash(python scripts/generate_blueprints.py)",
+      "Bash(python3 /Users/nicolas/Developer/domotique/simple-adaptive-lighting-blueprint/scripts/generate_blueprints.py)"
     ]
   }
 }
