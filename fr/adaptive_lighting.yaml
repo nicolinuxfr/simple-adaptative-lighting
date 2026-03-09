@@ -1,0 +1,719 @@
+blueprint:
+  name: "Éclairage adaptatif simplifié (2026.3.4)"
+  description: |-
+    Ce blueprint ajuste la luminosité et la température du blanc des éclairages connectés en fonction de la position du soleil.
+
+    Version : 2026.3.4 — [Changelog](https://github.com/nicolinuxfr/simple-adaptive-lighting-blueprint/blob/main/CHANGELOG.md#202634)
+  domain: automation
+  homeassistant:
+    min_version: 2024.6.0
+  input:
+    target_lights:
+      name: Lumières à contrôler
+      description: Choisir la ou les lumière(s) à contrôler avec cette automatisation.
+      selector:
+        entity:
+          domain: light
+          multiple: true
+
+    adaptive_settings:
+      name: Paramètres principaux
+      icon: mdi:tune-vertical
+      input:
+        brightness_night:
+          name: Luminosité minimale
+          description: Luminosité minimale en début et fin de journée.
+          default: 30
+          selector:
+            number:
+              min: 1
+              max: 100
+              step: 1
+              mode: slider
+              unit_of_measurement: "%"
+
+        brightness_day:
+          name: Luminosité maximale
+          description: Luminosité maximale au milieu de la journée.
+          default: 100
+          selector:
+            number:
+              min: 1
+              max: 100
+              step: 1
+              mode: slider
+              unit_of_measurement: "%"
+
+        kelvin_night:
+          name: Température minimale
+          description: Température du blanc en début et fin de journée (en Kelvin).
+          default: 2700
+          selector:
+            number:
+              min: 1800
+              max: 5000
+              step: 50
+              mode: slider
+              unit_of_measurement: K
+
+        kelvin_day:
+          name: Température maximale
+          description: Température du blanc au milieu de la journée (en Kelvin).
+          default: 5500
+          selector:
+            number:
+              min: 2200
+              max: 9000
+              step: 50
+              mode: slider
+              unit_of_measurement: K
+
+    advanced_settings:
+      name: Paramètres avancés
+      icon: mdi:cog
+      collapsed: true
+      input:
+        auto_mode_boolean:
+          name: Contrôle de l'adaptation automatique
+          description: Entité de type input_boolean ou binary_sensor qui contrôle les adaptations d'éclairage. Laisser le champ vide pour ne pas utiliser ce contrôle supplémentaire.
+          default: ""
+          selector:
+            entity:
+              filter:
+                - domain: input_boolean
+                - domain: binary_sensor
+
+        restore_on_off:
+          name: Réactivation automatique
+          description: Si l'option est activée, l'entité de contrôle est automatiquement réactivée quand toutes les lumières sont éteintes.
+          default: false
+          selector:
+            boolean:
+
+        disable_on_color:
+          name: Désactivation automatique avec des couleurs
+          description: Si l'option est activée, l'entité de contrôle est automatiquement désactivée lorsque l'un des éclairages surveillés passe en couleur.
+          default: false
+          selector:
+            boolean:
+
+        weather_entity:
+          name: Variation en fonction de la météo
+          description: Entité de type météo qui sera utilisée pour ajuster les paramètres en fonction des conditions climatiques. Laisser le champ vide pour ne pas utiliser cette fonctionnalité.
+          default: ""
+          selector:
+            entity:
+              domain: weather
+
+    night_mode_section:
+      name: Mode nuit
+      icon: mdi:weather-night
+      collapsed: true
+      input:
+        night_mode_entity:
+          name: Mode nuit
+          description: Entité de type input_boolean ou binary_sensor qui contrôle le mode nuit. Quand elle est active, les lumières sont configurées sur la luminosité et la température de blanc fixes définies ci-dessous.
+          default: ""
+          selector:
+            entity:
+              filter:
+                - domain: input_boolean
+                - domain: binary_sensor
+
+        night_mode_brightness:
+          name: Luminosité nuit
+          description: Luminosité fixe appliquée lorsque le mode nuit est actif.
+          default: 20
+          selector:
+            number:
+              min: 1
+              max: 100
+              step: 1
+              mode: slider
+              unit_of_measurement: "%"
+
+        night_mode_kelvin:
+          name: Température nuit
+          description: Température du blanc fixe appliquée lorsque le mode nuit est actif (en Kelvin).
+          default: 2200
+          selector:
+            number:
+              min: 1800
+              max: 5000
+              step: 50
+              mode: slider
+              unit_of_measurement: K
+
+mode: restart
+
+variables:
+  blueprint_revision: "2026.3.4"
+  auto_mode_input_entity: !input auto_mode_boolean
+  disable_on_color: !input disable_on_color
+  restore_on_off: !input restore_on_off
+  b_night: !input brightness_night
+  b_day: !input brightness_day
+  k_night: !input kelvin_night
+  k_day: !input kelvin_day
+  light_entities: !input target_lights
+  expanded_light_entities: >
+    {{ expand(light_entities)
+       | map(attribute='entity_id')
+       | unique
+       | list }}
+  weather_entity_id: !input weather_entity
+  night_mode_entity_id: !input night_mode_entity
+  nm_brightness: !input night_mode_brightness
+  nm_kelvin: !input night_mode_kelvin
+
+trigger_variables:
+  tick_light_entities: !input target_lights
+
+trigger:
+  - trigger: template
+    alias: Tick while lights on
+    # Run every 5 minutes, but only while at least one target light is on.
+    value_template: >
+      {{ (now().minute % 5 == 0)
+         and (
+           expand(tick_light_entities)
+           | selectattr('state', 'eq', 'on')
+           | list
+           | count
+         ) > 0 }}
+    id: tick
+
+  # Re-apply immediately when adaptive auto mode changes state.
+  # Use state_changed event to support all transitions (on/off/unknown/unavailable).
+  - trigger: event
+    alias: Auto mode entity changed
+    event_type: state_changed
+    event_data:
+      entity_id: !input auto_mode_boolean
+    id: auto_mode_enabled
+
+  # Re-apply immediately when night mode changes state.
+  - trigger: event
+    alias: Night mode entity changed
+    event_type: state_changed
+    event_data:
+      entity_id: !input night_mode_entity
+    id: night_mode_changed
+
+  # Re-apply immediately when automations are reloaded from HA UI/service.
+  - trigger: event
+    alias: Automations reloaded
+    event_type: call_service
+    event_data:
+      domain: automation
+      service: reload
+    id: automations_reload_service
+
+  - trigger: event
+    alias: Target light state changed
+    event_type: state_changed
+    id: light_state_changed
+
+  - trigger: sun
+    alias: Sunrise
+    event: sunrise
+    id: sun_event
+
+  - trigger: sun
+    alias: Sunset
+    event: sunset
+    id: sun_event
+
+condition:
+  - condition: template
+    value_template: >
+      {% set event = trigger.event.data if trigger.event is defined and trigger.event.data is defined else none %}
+      {% set light_state_event = trigger.id == 'light_state_changed'
+         and event is not none
+         and event.entity_id is defined
+         and event.entity_id in expanded_light_entities
+         and event.new_state is not none %}
+      {% set light_turned_on = light_state_event
+         and event.new_state.state == 'on'
+         and (event.old_state is none or event.old_state.state != 'on') %}
+      {% set light_switched_to_color = light_state_event
+         and disable_on_color
+         and auto_mode_input_entity not in ['', none]
+         and auto_mode_input_entity.startswith('input_boolean.')
+         and event.new_state.state == 'on'
+         and event.new_state.attributes.color_mode is defined
+         and event.new_state.attributes.color_mode not in ['color_temp', 'white']
+         and (
+           event.old_state is none
+           or event.old_state.attributes.color_mode is not defined
+           or event.old_state.attributes.color_mode != event.new_state.attributes.color_mode
+         ) %}
+      {% set light_turned_off_all_off = light_state_event
+         and restore_on_off
+         and auto_mode_input_entity not in ['', none]
+         and auto_mode_input_entity.startswith('input_boolean.')
+         and event.new_state.state == 'off'
+         and (expand(light_entities) | selectattr('state', 'eq', 'on') | list | count) == 0 %}
+      {{ trigger.id not in ['auto_mode_enabled', 'night_mode_changed', 'light_state_changed']
+         or (
+           trigger.id == 'auto_mode_enabled'
+           and auto_mode_input_entity not in ['', none]
+           and trigger.event is defined
+           and trigger.event.data is defined
+           and trigger.event.data.new_state is not none
+           and trigger.event.data.new_state.state == 'on'
+           and (
+             trigger.event.data.old_state is none
+             or trigger.event.data.old_state.state != 'on'
+           )
+         )
+         or (
+           trigger.id == 'night_mode_changed'
+           and night_mode_entity_id not in ['', none]
+           and trigger.event is defined
+           and trigger.event.data is defined
+           and trigger.event.data.new_state is not none
+           and (
+             trigger.event.data.old_state is none
+             or trigger.event.data.old_state.state != trigger.event.data.new_state.state
+           )
+         )
+         or light_turned_on
+         or light_switched_to_color
+         or light_turned_off_all_off }}
+
+  - condition: template
+    value_template: >
+      {% set event = trigger.event.data if trigger.event is defined and trigger.event.data is defined else none %}
+      {% set restore_scenario = restore_on_off
+         and trigger.id == 'light_state_changed'
+         and event is not none
+         and event.entity_id is defined
+         and event.entity_id in expanded_light_entities
+         and event.new_state is not none
+         and auto_mode_input_entity not in ['', none]
+         and auto_mode_input_entity.startswith('input_boolean.')
+         and is_state(auto_mode_input_entity, 'off')
+         and event.new_state.state == 'off'
+         and (expand(light_entities) | selectattr('state', 'eq', 'on') | list | count) == 0 %}
+      {{ auto_mode_input_entity in ['', none]
+         or is_state(auto_mode_input_entity, 'on')
+         or restore_scenario }}
+
+action:
+  - if:
+      - condition: trigger
+        id: light_state_changed
+    then:
+      - if:
+          - condition: template
+            value_template: >
+              {% set event = trigger.event.data if trigger.event is defined and trigger.event.data is defined else none %}
+              {{ disable_on_color
+                 and auto_mode_input_entity not in ['', none]
+                 and auto_mode_input_entity.startswith('input_boolean.')
+                 and event is not none
+                 and event.entity_id is defined
+                 and event.entity_id in expanded_light_entities
+                 and event.new_state is not none
+                 and event.new_state.state == 'on'
+                 and event.new_state.attributes.color_mode is defined
+                 and event.new_state.attributes.color_mode not in ['color_temp', 'white']
+                 and (
+                   event.old_state is none
+                   or event.old_state.attributes.color_mode is not defined
+                   or event.old_state.attributes.color_mode != event.new_state.attributes.color_mode
+                 ) }}
+        then:
+          - action: input_boolean.turn_off
+            target:
+              entity_id: "{{ auto_mode_input_entity }}"
+          - stop: "Handled color mode change"
+      - if:
+          - condition: template
+            value_template: >
+              {% set event = trigger.event.data if trigger.event is defined and trigger.event.data is defined else none %}
+              {{ restore_on_off
+                 and auto_mode_input_entity not in ['', none]
+                 and auto_mode_input_entity.startswith('input_boolean.')
+                 and is_state(auto_mode_input_entity, 'off')
+                 and event is not none
+                 and event.entity_id is defined
+                 and event.entity_id in expanded_light_entities
+                 and event.new_state is not none
+                 and event.new_state.state == 'off'
+                 and (expand(light_entities) | selectattr('state', 'eq', 'on') | list | count) == 0 }}
+        then:
+          - action: input_boolean.turn_on
+            target:
+              entity_id: "{{ auto_mode_input_entity }}"
+          - stop: "Restored control entity after all lights turned off"
+
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: light_state_changed
+          - condition: template
+            value_template: >
+              {% set event = trigger.event.data if trigger.event is defined and trigger.event.data is defined else none %}
+              {{ event is not none
+                 and event.entity_id is defined
+                 and event.entity_id in expanded_light_entities
+                 and event.new_state is not none
+                 and event.new_state.state == 'on'
+                 and (
+                   event.old_state is none
+                   or event.old_state.state != 'on'
+                 ) }}
+        sequence:
+          - delay:
+              milliseconds: 800
+
+  - variables:
+      on_lights: >
+        {{ expand(light_entities)
+           | selectattr('state', 'eq', 'on')
+           | map(attribute='entity_id')
+           | list }}
+      target_lights_to_update: >
+        {% set event = trigger.event.data if trigger.event is defined and trigger.event.data is defined else none %}
+        {% if trigger.id == 'light_state_changed'
+           and event is not none
+           and event.entity_id is defined
+           and event.entity_id in expanded_light_entities
+           and event.new_state is not none
+           and event.new_state.state == 'on'
+           and (
+             event.old_state is none
+             or event.old_state.state != 'on'
+           ) %}
+          {{ ([event.entity_id] + on_lights) | unique | list }}
+        {% else %}
+          {{ on_lights }}
+        {% endif %}
+
+  - condition: template
+    value_template: "{{ target_lights_to_update | count > 0 }}"
+
+  - variables:
+      now_ts: "{{ as_timestamp(now()) }}"
+      next_rising_ts: "{{ as_timestamp(state_attr('sun.sun', 'next_rising')) }}"
+      next_setting_ts: "{{ as_timestamp(state_attr('sun.sun', 'next_setting')) }}"
+      day_offset_s: 2700
+      sunrise_ts: >
+        {% if next_rising_ts and next_setting_ts %}
+          {% set nr = next_rising_ts | float(0) %}
+          {% set ns = next_setting_ts | float(0) %}
+          {{ (nr - (86400 if nr > ns else 0)) - (day_offset_s | float(1800)) }}
+        {% else %}
+          {{ none }}
+        {% endif %}
+      sunset_ts: >
+        {% if next_rising_ts and next_setting_ts %}
+          {{ (next_setting_ts | float(0)) + (day_offset_s | float(1800)) }}
+        {% else %}
+          {{ none }}
+        {% endif %}
+      previous_sunrise_ts: >
+        {% if sunrise_ts is not none %}
+          {{ (sunrise_ts | float(0)) - 86400 }}
+        {% else %}
+          {{ none }}
+        {% endif %}
+      previous_sunset_ts: >
+        {% if sunset_ts is not none %}
+          {{ (sunset_ts | float(0)) - 86400 }}
+        {% else %}
+          {{ none }}
+        {% endif %}
+      weather_curve_influence: 1.0
+      weather_kelvin_influence: 1.0
+      weather_condition_state: >
+        {% if weather_entity_id not in ['', none] %}
+          {{ states(weather_entity_id) | lower }}
+        {% else %}
+          {{ '' }}
+        {% endif %}
+      weather_condition: >
+        {{ weather_condition_state }}
+      weather_state_available: >
+        {% set c = weather_condition_state | lower %}
+        {{ c not in ['', 'unknown', 'unavailable', 'none'] }}
+      weather_data_available: >
+        {{ weather_state_available }}
+      weather_condition_factor: >
+        {% set c = weather_condition | lower %}
+        {% if c in ['sunny', 'clear-night'] %}
+          0.0
+        {% elif c in ['partlycloudy'] %}
+          0.35
+        {% elif c in ['windy'] %}
+          0.45
+        {% elif c in ['windy-variant', 'cloudy'] %}
+          0.55
+        {% elif c in ['snowy'] %}
+          0.6
+        {% elif c in ['snowy-rainy', 'hail'] %}
+          0.65
+        {% elif c in ['fog'] %}
+          0.75
+        {% elif c in ['rainy'] %}
+          0.8
+        {% elif c in ['pouring'] %}
+          0.85
+        {% elif c in ['lightning', 'lightning-rainy'] %}
+          0.9
+        {% elif c in ['exceptional'] %}
+          0.95
+        {% else %}
+          0.0
+        {% endif %}
+      weather_factor: >
+        {% if weather_entity_id not in ['', none]
+           and weather_data_available %}
+          {{ weather_condition_factor | float(0) }}
+        {% else %}
+          0
+        {% endif %}
+      configured_lights_count: "{{ light_entities | count }}"
+      single_light_mode: "{{ (configured_lights_count | int(0)) == 1 }}"
+      brightness_curve_gamma: 1.2
+      effective_brightness_curve_gamma: >
+        {% set base = brightness_curve_gamma | float(1.2) %}
+        {% set w = weather_factor | float(0) %}
+        {% set adjusted = base + (w * weather_curve_influence | float(1.0) * 0.25) %}
+        {{ [0.8, [adjusted, 2.2] | min] | max }}
+      daylight_progress: >
+        {% if sunrise_ts is not none and sunset_ts is not none %}
+          {% set t = now_ts | float(0) %}
+          {% set sr0 = sunrise_ts | float(0) %}
+          {% set ss0 = sunset_ts | float(0) %}
+          {% set sr_prev = previous_sunrise_ts | float(0) %}
+          {% set ss_prev = previous_sunset_ts | float(0) %}
+          {% if t >= sr0 and t < ss0 %}
+            {% set d = (t - sr0) / (ss0 - sr0) %}
+            {{ [0, [d, 1] | min] | max }}
+          {% elif t >= sr_prev and t < ss_prev %}
+            {% set d = (t - sr_prev) / (ss_prev - sr_prev) %}
+            {{ [0, [d, 1] | min] | max }}
+          {% else %}
+            {{ none }}
+          {% endif %}
+        {% else %}
+          {{ none }}
+        {% endif %}
+      # sun_position in [-1, 1]: 0 at adjusted sunrise/sunset, +1 at noon, -1 at midnight.
+      sun_position: >
+        {% if sunrise_ts is not none and sunset_ts is not none %}
+          {% set t = now_ts | float(0) %}
+          {% set sr0 = sunrise_ts | float(0) %}
+          {% set ss0 = sunset_ts | float(0) %}
+          {% set sr_prev = previous_sunrise_ts | float(0) %}
+          {% set ss_prev = previous_sunset_ts | float(0) %}
+          {% if t >= sr0 and t < ss0 %}
+            {% set day_start = sr0 %}
+            {% set day_end = ss0 %}
+            {% set d = (t - day_start) / (day_end - day_start) %}
+            {% set d = [0, [d, 1] | min] | max %}
+            {{ (1 - ((2 * d - 1) ** 2)) | float(0) }}
+          {% elif t >= sr_prev and t < ss_prev %}
+            {% set day_start = sr_prev %}
+            {% set day_end = ss_prev %}
+            {% set d = (t - day_start) / (day_end - day_start) %}
+            {% set d = [0, [d, 1] | min] | max %}
+            {{ (1 - ((2 * d - 1) ** 2)) | float(0) }}
+          {% elif t < sr0 %}
+            {% set night_start = ss_prev %}
+            {% set night_end = sr0 %}
+            {% set n = (t - night_start) / (night_end - night_start) %}
+            {% set n = [0, [n, 1] | min] | max %}
+            {{ (-(1 - ((2 * n - 1) ** 2))) | float(0) }}
+          {% else %}
+            {% set night_start = ss0 %}
+            {% set night_end = sr0 + 86400 %}
+            {% set n = (t - night_start) / (night_end - night_start) %}
+            {% set n = [0, [n, 1] | min] | max %}
+            {{ (-(1 - ((2 * n - 1) ** 2))) | float(0) }}
+          {% endif %}
+        {% else %}
+          0
+        {% endif %}
+      adaptive_curve_factor: >
+        {% set p = sun_position | float(0) %}
+        {% if p > 0 %}
+          {% set s0 = p * p * p * ((p * ((6 * p) - 15)) + 10) %}
+          {% set base_curve = s0 ** (effective_brightness_curve_gamma | float(1.2)) %}
+          {% set d = daylight_progress %}
+          {% if single_light_mode and d not in [none, 'none', ''] %}
+            {% set day_ratio = d | float(0) %}
+            {% if day_ratio < 0.5 %}
+              {{ base_curve ** 0.78 }}
+            {% else %}
+              {{ base_curve ** 0.62 }}
+            {% endif %}
+          {% else %}
+            {{ base_curve }}
+          {% endif %}
+        {% else %}
+          0
+        {% endif %}
+      weather_kelvin_offset: >
+        {% set w = weather_factor | float(0) %}
+        {% set centered = ((0.5 - w) * 900) %}
+        {{ centered * (weather_kelvin_influence | float(1.0)) }}
+      target_brightness: >
+        {% set b_min = [b_night | float(1), b_day | float(100)] | min %}
+        {% set b_max = [b_night | float(1), b_day | float(100)] | max %}
+        {% set f = adaptive_curve_factor | float(0) %}
+        {{ (b_min + (b_max - b_min) * f) | round(0) | int }}
+      target_kelvin: >
+        {% set k_min = [k_night | float(2200), k_day | float(5000)] | min %}
+        {% set k_max = [k_night | float(2200), k_day | float(5000)] | max %}
+        {% set f = adaptive_curve_factor | float(0) %}
+        {% set base = (k_min + (k_max - k_min) * f) %}
+        {% set adjusted = base + (weather_kelvin_offset | float(0)) %}
+        {{ [k_min, [adjusted, k_max] | min] | max | round(0) | int }}
+
+  - variables:
+      night_mode_active: >
+        {{ night_mode_entity_id not in ['', none]
+           and is_state(night_mode_entity_id, 'on') }}
+      effective_brightness: >
+        {{ nm_brightness | int(20) if night_mode_active else target_brightness | int(0) }}
+      effective_kelvin: >
+        {{ nm_kelvin | int(2200) if night_mode_active else target_kelvin | int(0) }}
+
+  - repeat:
+      for_each: "{{ target_lights_to_update }}"
+      sequence:
+        - variables:
+            modes: "{{ state_attr(repeat.item, 'supported_color_modes') or [] }}"
+            modes_count: "{{ modes | count }}"
+            min_k: "{{ state_attr(repeat.item, 'min_color_temp_kelvin') | float(0) }}"
+            max_k: "{{ state_attr(repeat.item, 'max_color_temp_kelvin') | float(0) }}"
+            # On periodic ticks, alternate between brightness and temperature updates.
+            tick_updates_brightness: "{{ trigger.id == 'tick' and ((now_ts | int(0) // 300) % 2 == 0) }}"
+            # If a light was turned on very recently, bypass alternation once.
+            # This prevents keeping a stale brightness or color right after power-on.
+            recently_turned_on: >
+              {% set last_changed_ts = as_timestamp(states[repeat.item].last_changed) | float(0) %}
+              {{ is_state(repeat.item, 'on') and ((now_ts | float(0)) - last_changed_ts) < 20 }}
+            has_brightness_attr: "{{ state_attr(repeat.item, 'brightness') is not none }}"
+            has_ct_kelvin_attr: "{{ state_attr(repeat.item, 'color_temp_kelvin') is not none }}"
+            has_ct_attr: "{{ state_attr(repeat.item, 'color_temp') is not none }}"
+            onoff_only: "{{ (modes_count == 1) and (modes[0] == 'onoff') }}"
+            supports_ct: >
+              {{ 'color_temp' in modes
+                 or (min_k > 0 and max_k > 0)
+                 or has_ct_kelvin_attr
+                 or has_ct_attr }}
+            # In Z2M/groups, supported_color_modes can be empty or partial.
+            # Default to brightness-capable unless explicitly onoff-only.
+            supports_brightness: >
+              {{ has_brightness_attr
+                 or (modes_count == 0)
+                 or not onoff_only }}
+            current_brightness_pct: >
+              {% set b = state_attr(repeat.item, 'brightness') %}
+              {% if b is not none %}
+                {{ [1, [((b | float(0)) / 2.55) | round(0) | int, 100] | min] | max }}
+              {% else %}
+                {{ effective_brightness | int(0) }}
+              {% endif %}
+            clamped_kelvin: >
+              {% if min_k > 0 and max_k > 0 %}
+                {{ [min_k, [effective_kelvin | float(0), max_k] | min] | max | round(0) | int }}
+              {% else %}
+                {{ effective_kelvin | int(0) }}
+              {% endif %}
+        - choose:
+            - conditions:
+                - condition: template
+                  value_template: >
+                    {{ trigger.id == 'tick'
+                       and supports_brightness
+                       and supports_ct
+                       and recently_turned_on }}
+              sequence:
+                - action: light.turn_on
+                  continue_on_error: true
+                  target:
+                    entity_id: "{{ repeat.item }}"
+                  data:
+                    transition: 10
+                    brightness_pct: "{{ effective_brightness | int(0) }}"
+                    color_temp_kelvin: "{{ clamped_kelvin | int(0) }}"
+            - conditions:
+                - condition: template
+                  value_template: >
+                    {{ trigger.id == 'tick'
+                       and supports_brightness
+                       and supports_ct
+                       and not recently_turned_on
+                       and tick_updates_brightness }}
+              sequence:
+                - action: light.turn_on
+                  continue_on_error: true
+                  target:
+                    entity_id: "{{ repeat.item }}"
+                  data:
+                    transition: 10
+                    brightness_pct: "{{ effective_brightness | int(0) }}"
+            - conditions:
+                - condition: template
+                  value_template: >
+                    {{ trigger.id == 'tick'
+                       and supports_brightness
+                       and supports_ct
+                       and not recently_turned_on
+                       and not tick_updates_brightness }}
+              sequence:
+                - action: light.turn_on
+                  continue_on_error: true
+                  target:
+                    entity_id: "{{ repeat.item }}"
+                  data:
+                    transition: 10
+                    brightness_pct: "{{ effective_brightness | int(0) if night_mode_active else current_brightness_pct | int(0) }}"
+                    color_temp_kelvin: "{{ clamped_kelvin | int(0) }}"
+            - conditions:
+                - condition: template
+                  value_template: "{{ supports_brightness and supports_ct }}"
+              sequence:
+                - action: light.turn_on
+                  continue_on_error: true
+                  target:
+                    entity_id: "{{ repeat.item }}"
+                  data:
+                    transition: 10
+                    brightness_pct: "{{ effective_brightness | int(0) }}"
+                    color_temp_kelvin: "{{ clamped_kelvin | int(0) }}"
+            - conditions:
+                - condition: template
+                  value_template: "{{ supports_brightness }}"
+              sequence:
+                - action: light.turn_on
+                  continue_on_error: true
+                  target:
+                    entity_id: "{{ repeat.item }}"
+                  data:
+                    transition: 10
+                    brightness_pct: "{{ effective_brightness | int(0) }}"
+            - conditions:
+                - condition: template
+                  value_template: "{{ supports_ct }}"
+              sequence:
+                - action: light.turn_on
+                  continue_on_error: true
+                  target:
+                    entity_id: "{{ repeat.item }}"
+                  data:
+                    transition: 10
+                    color_temp_kelvin: "{{ clamped_kelvin | int(0) }}"
+          default:
+            - action: light.turn_on
+              continue_on_error: true
+              target:
+                entity_id: "{{ repeat.item }}"
+              data:
+                transition: 10
