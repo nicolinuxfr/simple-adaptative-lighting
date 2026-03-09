@@ -83,6 +83,13 @@ blueprint:
                 - domain: input_boolean
                 - domain: binary_sensor
 
+        restore_on_off:
+          name: [[input.restore_on_off.name]]
+          description: [[input.restore_on_off.description]]
+          default: false
+          selector:
+            boolean:
+
         disable_on_color:
           name: [[input.disable_on_color.name]]
           description: [[input.disable_on_color.description]]
@@ -143,6 +150,7 @@ variables:
   blueprint_revision: "[[blueprint.version]]"
   auto_mode_input_entity: !input auto_mode_boolean
   disable_on_color: !input disable_on_color
+  restore_on_off: !input restore_on_off
   b_night: !input brightness_night
   b_day: !input brightness_day
   k_night: !input kelvin_night
@@ -240,6 +248,12 @@ condition:
            or event.old_state.attributes.color_mode is not defined
            or event.old_state.attributes.color_mode != event.new_state.attributes.color_mode
          ) %}
+      {% set light_turned_off_all_off = light_state_event
+         and restore_on_off
+         and auto_mode_input_entity not in ['', none]
+         and auto_mode_input_entity.startswith('input_boolean.')
+         and event.new_state.state == 'off'
+         and (expand(light_entities) | selectattr('state', 'eq', 'on') | list | count) == 0 %}
       {{ trigger.id not in ['auto_mode_enabled', 'night_mode_changed', 'light_state_changed']
          or (
            trigger.id == 'auto_mode_enabled'
@@ -265,12 +279,26 @@ condition:
            )
          )
          or light_turned_on
-         or light_switched_to_color }}
+         or light_switched_to_color
+         or light_turned_off_all_off }}
 
   - condition: template
     value_template: >
+      {% set event = trigger.event.data if trigger.event is defined and trigger.event.data is defined else none %}
+      {% set restore_scenario = restore_on_off
+         and trigger.id == 'light_state_changed'
+         and event is not none
+         and event.entity_id is defined
+         and event.entity_id in expanded_light_entities
+         and event.new_state is not none
+         and auto_mode_input_entity not in ['', none]
+         and auto_mode_input_entity.startswith('input_boolean.')
+         and is_state(auto_mode_input_entity, 'off')
+         and event.new_state.state == 'off'
+         and (expand(light_entities) | selectattr('state', 'eq', 'on') | list | count) == 0 %}
       {{ auto_mode_input_entity in ['', none]
-         or is_state(auto_mode_input_entity, 'on') }}
+         or is_state(auto_mode_input_entity, 'on')
+         or restore_scenario }}
 
 action:
   - if:
@@ -281,7 +309,8 @@ action:
           - condition: template
             value_template: >
               {% set event = trigger.event.data if trigger.event is defined and trigger.event.data is defined else none %}
-              {{ auto_mode_input_entity not in ['', none]
+              {{ disable_on_color
+                 and auto_mode_input_entity not in ['', none]
                  and auto_mode_input_entity.startswith('input_boolean.')
                  and event is not none
                  and event.entity_id is defined
@@ -300,6 +329,25 @@ action:
             target:
               entity_id: "{{ auto_mode_input_entity }}"
           - stop: "Handled color mode change"
+      - if:
+          - condition: template
+            value_template: >
+              {% set event = trigger.event.data if trigger.event is defined and trigger.event.data is defined else none %}
+              {{ restore_on_off
+                 and auto_mode_input_entity not in ['', none]
+                 and auto_mode_input_entity.startswith('input_boolean.')
+                 and is_state(auto_mode_input_entity, 'off')
+                 and event is not none
+                 and event.entity_id is defined
+                 and event.entity_id in expanded_light_entities
+                 and event.new_state is not none
+                 and event.new_state.state == 'off'
+                 and (expand(light_entities) | selectattr('state', 'eq', 'on') | list | count) == 0 }}
+        then:
+          - action: input_boolean.turn_on
+            target:
+              entity_id: "{{ auto_mode_input_entity }}"
+          - stop: "Restored control entity after all lights turned off"
 
   - choose:
       - conditions:

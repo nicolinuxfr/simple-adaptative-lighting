@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.3.4
+
+- New option to automatically reactivate the control entity when all lights are off. 
+
 ## 2026.3.3
 
 - New option to automatically deactivate the control entity if you change the lights to display colors :

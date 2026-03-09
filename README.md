@@ -24,7 +24,10 @@ The automation created from the blueprint only requires one parameter: one or mo
 Here is the list of options with some explanations where needed:
 
 - **Main settings**: choose the minimum and maximum brightness, as well as the minimum and maximum white temperature for the lights.
-- **Entity control**: by selecting a boolean entity (of type `input_boolean` or `binary_sensor`), you can add control over the automation without disabling it. The entity must be active for the automation to adjust the lights, and when it is disabled, the lights stay at the last automatic setting. If you enable the automatic deactivation on color option, member lights inside a selected Home Assistant group are also monitored individually.
+- **Entity control**: by selecting a boolean entity (of type `input_boolean` or `binary_sensor`), you can add control over the automation without disabling it. The entity must be active for the automation to adjust the lights, and when it is disabled, the lights stay at the last automatic setting.
+- If you enable entity control, two additional options are available:
+  - **Automatic re-activation**: automatically re-enables the control entity when all lights managed by the automation turn off.
+  - **Automatic deactivation on color**: automatically disables the control entity as soon as one of the managed lights switches to color mode. Since the automation only works with white light, this is a sign that you want to take over and disable automatic adaptations. You can then re-enable the control entity manually, via another automation, or by enabling the automatic re-activation option.
 - **Weather**: by selecting a weather entity, the automation's behavior is modified based on weather conditions. The idea is to slightly vary the parameters to have dimmer and warmer lighting when weather conditions are bad.
 - **Night mode**: by selecting a boolean entity (of type `input_boolean` or `binary_sensor`), you can set up specific fixed lighting for the night. When the entity is active, automatic adjustments are disabled and the brightness and color temperature settings are used instead. This allows daytime settings bright enough to be comfortable, while keeping nighttime lighting much dimmer.
 
@@ -34,7 +37,7 @@ For all three optional features (entity control, weather and night mode), leavin
 
 The automation activates as soon as the selected lights turn on. From there, it triggers every five minutes to adjust the brightness and white temperature based on the defined parameters, the time of day, and the automatically calculated curve. Each transition is spread over ten seconds to avoid visible changes. To limit issues with certain lights, the automation adopts a two-step strategy and alternates between brightness and white temperature at each update.
 
-If a control entity is used, adaptation automatically stops as soon as the entity is disabled and resumes if it is re-enabled. In this case, there is no delay — the correct values are immediately sent, with a smooth progression over 10 seconds. With automatic deactivation on color enabled, the blueprint also watches the individual lights contained in any selected Home Assistant group.
+If a control entity is used, adaptation automatically stops as soon as the entity is disabled and resumes if it is re-enabled. In this case, there is no delay — the correct values are immediately sent, with a smooth progression over 10 seconds. Optionally, the control entity can be automatically re-enabled when the lights turn off, and automatically disabled as soon as one of the managed lights switches to color mode.
 
 If weather adaptation is enabled, the curve is slightly adjusted based on current weather conditions. This information is only updated when the lights are initially turned on, to save resources.
 
