@@ -2,7 +2,9 @@
 
 ## 2026.3.3
 
-- Automatically deactivate the control entity if you change the lights to display colors. 
+- New option to automatically deactivate the control entity if you change the lights to display colors :
+  - It's purely optionnal, by default you have to deactive the entity yourself ;
+  - The blueprint do not handle the reactivation of the control entity, you have to it manually or in a different automation.
 
 ## 2026.3.2
 
