@@ -28,11 +28,6 @@ def parse_args() -> argparse.Namespace:
         help="Filename used for each generated blueprint.",
     )
     parser.add_argument(
-        "--write-root-default",
-        action="store_true",
-        help="Also write fallback language output at repository root filename.",
-    )
-    parser.add_argument(
         "--version-file",
         default="VERSION",
         help="Path to plain-text version file injected as [[blueprint.version]].",
@@ -173,10 +168,6 @@ def main() -> int:
         lang_out_dir = output_dir / lang
         lang_out_dir.mkdir(parents=True, exist_ok=True)
         (lang_out_dir / args.filename).write_text(rendered, encoding="utf-8")
-
-    default_output = output_dir / args.default_lang / args.filename
-    if args.write_root_default:
-        Path(args.filename).write_text(default_output.read_text(encoding="utf-8"), encoding="utf-8")
 
     print(
         f"Rendered {len(dictionaries)} language(s) to '{output_dir}'. "

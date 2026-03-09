@@ -148,6 +148,11 @@ variables:
   k_night: !input kelvin_night
   k_day: !input kelvin_day
   light_entities: !input target_lights
+  expanded_light_entities: >
+    {{ expand(light_entities)
+       | map(attribute='entity_id')
+       | unique
+       | list }}
   weather_entity_id: !input weather_entity
   night_mode_entity_id: !input night_mode_entity
   nm_brightness: !input night_mode_brightness
@@ -196,17 +201,10 @@ trigger:
       service: reload
     id: automations_reload_service
 
-  - trigger: state
-    alias: Light turned on
-    entity_id: !input target_lights
-    to: "on"
-    id: light_on
-
-  - trigger: state
-    alias: Light switched to color mode
-    entity_id: !input target_lights
-    attribute: color_mode
-    id: light_color_mode
+  - trigger: event
+    alias: Target light state changed
+    event_type: state_changed
+    id: light_state_changed
 
   - trigger: sun
     alias: Sunrise
@@ -221,7 +219,27 @@ trigger:
 condition:
   - condition: template
     value_template: >
-      {{ trigger.id not in ['auto_mode_enabled', 'night_mode_changed', 'light_color_mode']
+      {% set event = trigger.event.data if trigger.event is defined and trigger.event.data is defined else none %}
+      {% set light_state_event = trigger.id == 'light_state_changed'
+         and event is not none
+         and event.entity_id is defined
+         and event.entity_id in expanded_light_entities
+         and event.new_state is not none %}
+      {% set light_turned_on = light_state_event
+         and event.new_state.state == 'on'
+         and (event.old_state is none or event.old_state.state != 'on') %}
+      {% set light_switched_to_color = light_state_event
+         and disable_on_color
+         and auto_mode_input_entity not in ['', none]
+         and auto_mode_input_entity.startswith('input_boolean.')
+         and event.new_state.attributes.color_mode is defined
+         and event.new_state.attributes.color_mode not in ['color_temp', 'white']
+         and (
+           event.old_state is none
+           or event.old_state.attributes.color_mode is not defined
+           or event.old_state.attributes.color_mode != event.new_state.attributes.color_mode
+         ) %}
+      {{ trigger.id not in ['auto_mode_enabled', 'night_mode_changed', 'light_state_changed']
          or (
            trigger.id == 'auto_mode_enabled'
            and auto_mode_input_entity not in ['', none]
@@ -245,10 +263,8 @@ condition:
              or trigger.event.data.old_state.state != trigger.event.data.new_state.state
            )
          )
-         or (
-           trigger.id == 'light_color_mode'
-           and disable_on_color
-         ) }}
+         or light_turned_on
+         or light_switched_to_color }}
 
   - condition: template
     value_template: >
@@ -258,26 +274,47 @@ condition:
 action:
   - if:
       - condition: trigger
-        id: light_color_mode
+        id: light_state_changed
     then:
       - if:
           - condition: template
             value_template: >
+              {% set event = trigger.event.data if trigger.event is defined and trigger.event.data is defined else none %}
               {{ auto_mode_input_entity not in ['', none]
                  and auto_mode_input_entity.startswith('input_boolean.')
-                 and trigger.to_state is not none
-                 and trigger.to_state.attributes.color_mode is defined
-                 and trigger.to_state.attributes.color_mode not in ['color_temp', 'white'] }}
+                 and event is not none
+                 and event.entity_id is defined
+                 and event.entity_id in expanded_light_entities
+                 and event.new_state is not none
+                 and event.new_state.attributes.color_mode is defined
+                 and event.new_state.attributes.color_mode not in ['color_temp', 'white']
+                 and (
+                   event.old_state is none
+                   or event.old_state.attributes.color_mode is not defined
+                   or event.old_state.attributes.color_mode != event.new_state.attributes.color_mode
+                 ) }}
         then:
           - action: input_boolean.turn_off
             target:
               entity_id: "{{ auto_mode_input_entity }}"
-      - stop: "Handled color mode change"
+          - stop: "Handled color mode change"
 
   - choose:
       - conditions:
           - condition: trigger
-            id: light_on
+            id: light_state_changed
+          - condition: template
+            value_template: >
+              {% set event = trigger.event.data if trigger.event is defined and trigger.event.data is defined else none %}
+              {{ event is not none
+                 and event.entity_id is defined
+                 and event.entity_id in expanded_light_entities
+                 and event.new_state is not none
+                 and event.new_state.state == 'on'
+                 and (
+                   event.old_state is none
+                   or event.old_state.state != 'on'
+                 ) }}
         sequence:
           - delay:
               milliseconds: 800
@@ -289,8 +326,18 @@ action:
            | map(attribute='entity_id')
            | list }}
       target_lights_to_update: >
-        {% if trigger.id == 'light_on' and trigger.entity_id in light_entities %}
-          {{ ([trigger.entity_id] + on_lights) | unique | list }}
+        {% set event = trigger.event.data if trigger.event is defined and trigger.event.data is defined else none %}
+        {% if trigger.id == 'light_state_changed'
+           and event is not none
+           and event.entity_id is defined
+           and event.entity_id in expanded_light_entities
+           and event.new_state is not none
+           and event.new_state.state == 'on'
+           and (
+             event.old_state is none
+             or event.old_state.state != 'on'
+           ) %}
+          {{ ([event.entity_id] + on_lights) | unique | list }}
         {% else %}
           {{ on_lights }}
         {% endif %}

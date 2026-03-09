@@ -17,7 +17,7 @@
   "input.auto_mode_boolean.name": "Contrôle de l'adaptation automatique",
   "input.auto_mode_boolean.description": "Entité de type input_boolean ou binary_sensor qui contrôle les adaptations d'éclairage. Laisser le champ vide pour ne pas utiliser ce contrôle supplémentaire.",
   "input.disable_on_color.name": "Désactivation automatique avec des couleurs",
-  "input.disable_on_color.description": "Si l'option est activée, l'entité de contrôle est automatiquement désactivée lorsque l'un des éclairages passe en couleur. C'est à vous de réactiver l'entité de contrôle manuellement ou dans une autre automatisation.",
+  "input.disable_on_color.description": "Si l'option est activée, l'entité de contrôle est automatiquement désactivée lorsque l'un des éclairages surveillés passe en couleur. C'est à vous de réactiver l'entité de contrôle manuellement ou dans une autre automatisation.",
   "input.weather_entity.name": "Variation en fonction de la météo",
   "input.weather_entity.description": "Entité de type météo qui sera utilisée pour ajuster les paramètres en fonction des conditions climatiques. Laisser le champ vide pour ne pas utiliser cette fonctionnalité.",
   "input.night_mode_section.name": "Mode nuit",
