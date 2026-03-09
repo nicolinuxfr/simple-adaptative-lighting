@@ -6,6 +6,7 @@ on:
       - template.yaml
       - languages/**/*.json
       - scripts/generate_blueprints.py
+      - VERSION
   push:
     branches:
       - main
@@ -13,6 +14,7 @@ on:
       - template.yaml
       - languages/**/*.json
       - scripts/generate_blueprints.py
+      - VERSION
 
 permissions:
   contents: write
